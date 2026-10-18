@@ -62,7 +62,7 @@ GOALS = [
 def db():
     c = sqlite3.connect(DB, timeout=20)
     c.execute("CREATE TABLE IF NOT EXISTS messages (user_id INTEGER, role TEXT, content TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
-    c.execute("CREATE TABLE IF NOT EXISTS feedback (user_id INTEGER, rating TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE TABLE IF NOT EXISTS feedback (user_id INTEGER, rating TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")\n    c.execute("CREATE TABLE IF NOT EXISTS feedback_notes (user_id INTEGER, note TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
     c.execute("""CREATE TABLE IF NOT EXISTS profiles (
         user_id INTEGER PRIMARY KEY, status TEXT, patterns TEXT, goal TEXT,
         preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
@@ -145,6 +145,11 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     msg = (update.effective_message.text or "").strip()
     if not msg: return
+    if context.user_data.pop("awaiting_feedback", False):
+        with db() as c:
+            c.execute("INSERT INTO feedback_notes(user_id,note) VALUES (?,?)", (update.effective_user.id, msg[:2000]))
+        await update.effective_message.reply_text("Thank you for sharing. Your feedback didn't use a free reply. 💛")
+        return
     if len(msg) > 3500:
         await update.effective_message.reply_text("Please send a shorter message (under 3,500 characters).")
         return
@@ -197,6 +202,11 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
+        if uid not in OWNERS and used + 1 in (3, 8):
+            await update.effective_message.reply_text(
+                "A little Queen's Alchemist check-in: how helpful has this felt so far? "
+                "This doesn't use a free reply.",
+                reply_markup=buttons(["❤️ Very", "🙂 Somewhat", "👎 Not really", "✍️ Share a thought"], "f:"))
         if uid not in OWNERS and remaining == 1:
             await update.effective_message.reply_text(
                 "You've reached the end of your 10 free AI replies. "
@@ -246,6 +256,6 @@ if __name__ == "__main__":
     for cmd, fn in [("id", id_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|p|g|n):"))
-    app.add_handler(CallbackQueryHandler(rate, pattern=r"^r:"))
+    app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling(drop_pending_updates=True)
