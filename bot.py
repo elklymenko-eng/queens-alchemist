@@ -1,4 +1,4 @@
-import os, json, sqlite3, logging
+import os, json, sqlite3, logging, asyncio
 from pathlib import Path
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -7,105 +7,245 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('queens_alchemist')
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-API_KEY = os.getenv('OPENAI_API_KEY')
-MODEL = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini')
-ALLOWED = {int(v.strip()) for v in os.getenv('ALLOWED_USER_IDS', '').split(',') if v.strip()}
-DATA_DIR = Path(os.getenv('DATA_DIR', './data'))
+log = logging.getLogger("queens_alchemist")
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+API_KEY = os.getenv("OPENAI_API_KEY")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+ALLOWED = {int(x.strip()) for x in os.getenv("ALLOWED_USER_IDS", "").split(",") if x.strip()}
+OWNERS = {int(x.strip()) for x in os.getenv("OWNER_USER_IDS", "").split(",") if x.strip()}
+BETA_OPEN = os.getenv("BETA_OPEN", "false").lower() == "true"
+FREE_REPLIES = 10
+DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-DB = DATA_DIR / 'beta.sqlite3'
+DB = DATA_DIR / "beta.sqlite3"
 BASE = Path(__file__).parent
-PRACTICES = json.loads((BASE / 'practices.json').read_text())
-KNOWLEDGE = (BASE / 'knowledge.md').read_text()
+PRACTICES = json.loads((BASE / "practices.json").read_text())
+KNOWLEDGE = (BASE / "knowledge.md").read_text()
+MODULE_NAMES = [
+    "identity_and_voice.md", "coaching_decision_tree.md",
+    "masculine_feminine.md", "subconscious_rewiring.md",
+    "repeated_unavailable_pattern.md", "inner_union_practice.md",
+    "queens_remembrance.md", "golden_scenarios.md",
+]
+MODULES = "\n\n".join((BASE / "v2" / name).read_text(encoding="utf-8")
+                      for name in MODULE_NAMES if (BASE / "v2" / name).exists())
 AI = AsyncOpenAI(api_key=API_KEY) if API_KEY else None
+LOCKS = {}
 
-SYSTEM = '''You are The Queen's Alchemist, an AI coaching companion grounded in Elena's Queen's Alchemy teachings. You are not Elena. Speak warmly, perceptively, with elegant wit when natural, but not floridly or at excessive length. Meet the actual question before going deeper. Usually ask one intelligent question at a time; do not leap to archetype labels or spiritual causation. In early conversation, learn her situation and desire, then give concise reflection and a grounded next step. If appropriate, offer exactly one relevant practice and its real URL from the catalogue, never invent links. Ask permission before deeper inner-child work. Do not make health or hormone claims as established facts without evidence. Avoid dependency and repetitive upselling. Never promise guaranteed attraction or commitment. Make practical room for a partner's observable behavior and the woman's own agency. You are coaching/education, not therapy. If user reports immediate danger, self-harm, abuse or coercion, prioritize safety and human support. Do not collect unnecessary personal identifiers. You can offer interactive journaling one prompt at a time; let her skip or stop. Do not imply you have watched the linked videos.\n\nKNOWLEDGE:\n'''+KNOWLEDGE+'\n\nPRACTICE CATALOGUE:\n'+json.dumps(PRACTICES,ensure_ascii=False)
+SYSTEM = """You are The Queen's Alchemist, an AI coaching companion based on Elena's Queen's Alchemy teachings. You are not Elena, a therapist, or a human. Be perceptive, warm, witty when appropriate and concise. Vary natural terms of address (beautiful, beauty, darling, lovely, Queen), or use none. Only use a preferred first name sparingly. Answer the actual question first. Ask at most one intelligent question at a time. Archetypes are integrated aspects, not exclusive personality types or diagnoses; the Queen compassionately holds them and chooses. Do not mind-read men, blame women for partners' conduct, or claim spiritual causation. Don't require childhood work or pressure dating decisions. Offer one optional short practice when appropriate; do not promise outcomes or invent URLs. Prioritize safety if coercion, abuse, crisis or serious health risk arises. Avoid upselling during distress. This is educational coaching, not psychotherapy.
 
+FOUNDATION:
+""" + KNOWLEDGE + "\n\nV2 TEACHINGS:\n" + MODULES + "\n\nPRACTICES:\n" + json.dumps(PRACTICES, ensure_ascii=False)
+
+STATUS = [
+    ("Single and dating", "dating"), ("Single, taking a break", "single"),
+    ("Situationship / complicated", "complicated"), ("In a relationship", "relationship"),
+    ("Breakup / healing", "healing")
+]
+PATTERNS = [
+    "I don't attract the quality men I desire",
+    "Men start strong, then disappear",
+    "Men are passive; I do all the work",
+    "I fall for emotionally unavailable men",
+    "I give too much and receive too little",
+    "I'm in a relationship but feel unfulfilled",
+    "Men I want don't choose me",
+    "I struggle to trust or receive love",
+    "I'm not sure yet"
+]
+GOALS = [
+    "Discover my relationship pattern", "Explore my archetypes",
+    "Date like a Queen", "Create a relationship like a Queen",
+    "Heal and reconnect with myself"
+]
 
 def db():
-    c = sqlite3.connect(DB)
-    c.execute('CREATE TABLE IF NOT EXISTS messages (user_id INTEGER, role TEXT, content TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
-    c.execute('CREATE TABLE IF NOT EXISTS feedback (user_id INTEGER, rating TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
+    c = sqlite3.connect(DB, timeout=20)
+    c.execute("CREATE TABLE IF NOT EXISTS messages (user_id INTEGER, role TEXT, content TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE TABLE IF NOT EXISTS feedback (user_id INTEGER, rating TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("""CREATE TABLE IF NOT EXISTS profiles (
+        user_id INTEGER PRIMARY KEY, status TEXT, patterns TEXT, goal TEXT,
+        preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
+        replies_used INTEGER NOT NULL DEFAULT 0)""")
     c.commit()
     return c
 
+def authorized(update):
+    uid = update.effective_user.id
+    return BETA_OPEN or uid in ALLOWED or uid in OWNERS
 
-def authorized(update: Update):
-    return bool(ALLOWED) and update.effective_user.id in ALLOWED
-
-async def gate(update: Update):
-    if authorized(update): return True
-    await update.effective_message.reply_text('The Queen’s Alchemist is currently a private beta. Your Telegram ID is '+str(update.effective_user.id)+'. Send this numeric ID to Elena to request access. Please do not send any personal relationship details until invited.')
+async def gate(update):
+    if authorized(update):
+        return True
+    await update.effective_message.reply_text(
+        "The Queen's Alchemist is in a private beta. Your Telegram ID is "
+        + str(update.effective_user.id)
+        + ". Ask the creator to add you to the tester list. Please don't share personal details yet.")
     return False
+
+def buttons(items, prefix, cols=1):
+    b = [InlineKeyboardButton(label, callback_data=prefix + str(i)) for i, label in enumerate(items)]
+    return InlineKeyboardMarkup([b[i:i+cols] for i in range(0, len(b), cols)])
+
+def profile(uid):
+    with db() as c:
+        c.execute("INSERT OR IGNORE INTO profiles(user_id) VALUES (?)", (uid,))
+        return c.execute("SELECT status,patterns,goal,preferred_name,stage,replies_used FROM profiles WHERE user_id=?", (uid,)).fetchone()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
-    await update.message.reply_text('👑 Welcome to The Queen’s Alchemist — Elena’s AI coaching companion for conscious love, dating and feminine embodiment.\n\nI’m AI, not Elena or a therapist. Please avoid sharing identifying or highly sensitive details. Beta conversations are processed by our AI provider and stored by the bot operator for continuity; use /reset to erase your chat history in this beta database.\n\nWhere are you in your love life?', reply_markup=InlineKeyboardMarkup([
-      [InlineKeyboardButton('Single / Dating',callback_data='status:Single or dating'),InlineKeyboardButton('In a relationship',callback_data='status:In a relationship')],
-      [InlineKeyboardButton('Situationship / Complicated',callback_data='status:Situationship or complicated')],
-      [InlineKeyboardButton('Breakup / Healing',callback_data='status:Breakup or healing'),InlineKeyboardButton('Something else',callback_data='status:Something else')]
-    ]))
+    uid = update.effective_user.id
+    profile(uid)
+    await update.effective_message.reply_text(
+        "👑 Welcome to The Queen's Alchemist. Discover what's been running your love life—and how your Queen can lead.\n\n"
+        "I'm an AI coaching companion, not Elena or a therapist. Your messages are processed by an AI provider "
+        "and stored by the bot for continuity. Avoid identifying or highly sensitive details. "
+        "Use /reset to clear your stored chat messages (not your trial counter).\n\n"
+        "You have 10 free AI replies; the welcome quiz doesn't count. Let's begin.\n\nWhere are you in your love life?",
+        reply_markup=buttons([s[0] for s in STATUS], "s:"))
 
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     if not await gate(update): return
-    value = q.data.split(':',1)[1]
-    with db() as c: c.execute('INSERT INTO messages (user_id,role,content) VALUES (?,?,?)',(q.from_user.id,'user','My relationship status: '+value))
-    await q.message.reply_text('What is happening in your love life that you most want help with right now?')
+    uid = q.from_user.id
+    profile(uid)
+    kind, value = q.data.split(":", 1)
+    if not value.isdigit(): return
+    idx = int(value)
+    with db() as c:
+        if kind == "s" and idx < len(STATUS):
+            c.execute("UPDATE profiles SET status=?,stage=1 WHERE user_id=?", (STATUS[idx][0], uid))
+            await q.message.reply_text(
+                "What keeps happening in your love life? Choose the one that feels closest. "
+                "We'll explore it together—this isn't a diagnosis.",
+                reply_markup=buttons(PATTERNS, "p:"))
+        elif kind == "p" and idx < len(PATTERNS):
+            c.execute("UPDATE profiles SET patterns=?,stage=2 WHERE user_id=?", (PATTERNS[idx], uid))
+            await q.message.reply_text(
+                "You aren't just one archetype. Princess, Lover, Mother, Warrior, Priestess and other aspects "
+                "can all be active. Your Queen holds them with compassion and chooses with discernment.\n\n"
+                "What would you most like to explore?",
+                reply_markup=buttons(GOALS, "g:"))
+        elif kind == "g" and idx < len(GOALS):
+            c.execute("UPDATE profiles SET goal=?,stage=3 WHERE user_id=?", (GOALS[idx], uid))
+            await q.message.reply_text(
+                "What shall I call you? A first name or nickname is optional.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Skip", callback_data="n:0")]]))
+        elif kind == "n":
+            c.execute("UPDATE profiles SET stage=4 WHERE user_id=?", (uid,))
+            await q.message.reply_text(
+                "Lovely. Now tell me a little about what's happening in your love life. "
+                "Or just say 'start' and we'll explore your choices together. "
+                "Your first AI reply begins when you send a message.")
+        else:
+            return
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
-    msg = update.message.text.strip()
+    msg = (update.effective_message.text or "").strip()
     if not msg: return
+    if len(msg) > 3500:
+        await update.effective_message.reply_text("Please send a shorter message (under 3,500 characters).")
+        return
     uid = update.effective_user.id
-    if len(msg)>3500:
-        await update.message.reply_text('Could you send a shorter message (under 3,500 characters)?')
-        return
-    with db() as c:
-        history=c.execute('SELECT role,content FROM messages WHERE user_id=? ORDER BY ts DESC,rowid DESC LIMIT 16',(uid,)).fetchall()[::-1]
-    await update.message.chat.send_action('typing')
-    try:
-        response = await AI.responses.create(model=MODEL, instructions=SYSTEM, input=[{'role':r,'content':t} for r,t in history]+[{'role':'user','content':msg}], max_output_tokens=700, store=False)
-        answer = response.output_text.strip() or 'Could you say a little more about that?'
-    except Exception:
-        log.exception('AI request failed')
-        await update.message.reply_text('I’m having trouble responding right now. Please try again shortly.')
-        return
-    with db() as c:
-        c.execute('INSERT INTO messages (user_id,role,content) VALUES (?,?,?)',(uid,'user',msg))
-        c.execute('INSERT INTO messages (user_id,role,content) VALUES (?,?,?)',(uid,'assistant',answer))
-    for i in range(0,len(answer),3800): await update.message.reply_text(answer[i:i+3800],disable_web_page_preview=True)
+    lock = LOCKS.setdefault(uid, asyncio.Lock())
+    async with lock:
+        status, pattern, goal, name, stage, used = profile(uid)
+        if stage == 3:
+            if msg.lower() not in ("skip", "no", "prefer not"):
+                name = msg[:60]
+                with db() as c:
+                    c.execute("UPDATE profiles SET preferred_name=?,stage=4 WHERE user_id=?", (name, uid))
+            else:
+                with db() as c: c.execute("UPDATE profiles SET stage=4 WHERE user_id=?", (uid,))
+            await update.effective_message.reply_text(
+                "Thank you. Tell me what's happening in your love life, or say 'start' to explore your choices.")
+            return
+        if stage < 3:
+            await update.effective_message.reply_text("Send /start to begin the free discovery quiz.")
+            return
+        if uid not in OWNERS and used >= FREE_REPLIES:
+            await update.effective_message.reply_text(
+                "👑 You've enjoyed your 10 free Alchemist replies. Thank you for exploring! "
+                "Use /feedback to share what helped. More ways to continue are coming soon.")
+            return
+        with db() as c:
+            history = c.execute("SELECT role,content FROM messages WHERE user_id=? ORDER BY ts DESC,rowid DESC LIMIT 12", (uid,)).fetchall()[::-1]
+        remaining = FREE_REPLIES - used
+        context_note = (
+            "ONBOARDING (self-reported, tentative): status=" + str(status)
+            + "; pattern=" + str(pattern) + "; goal=" + str(goal)
+            + "; preferred address=" + str(name or "none")
+            + ". Trial replies remaining including this one: " + str(remaining)
+            + ". Do not repeat a rigid funnel; be helpful now. If user says start, invite one specific exploration."
+        )
+        await update.effective_chat.send_action("typing")
+        try:
+            response = await AI.responses.create(
+                model=MODEL, instructions=SYSTEM + "\n\n" + context_note,
+                input=[{"role": r, "content": t} for r, t in history] + [{"role": "user", "content": msg}],
+                max_output_tokens=700, store=False)
+            answer = response.output_text.strip() or "What feels most important about this right now?"
+        except Exception:
+            log.exception("AI request failed")
+            await update.effective_message.reply_text("I'm having trouble responding. Please try again shortly; this didn't use a free reply.")
+            return
+        with db() as c:
+            c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "user", msg))
+            c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "assistant", answer))
+            c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
+        for i in range(0, len(answer), 3800):
+            await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
+        if uid not in OWNERS and remaining == 1:
+            await update.effective_message.reply_text(
+                "You've reached the end of your 10 free AI replies. "
+                "Thank you for being part of our beta! Send /feedback to share your experience.")
+        elif uid not in OWNERS and remaining in (6, 3):
+            await update.effective_message.reply_text(
+                "👑 " + str(remaining-1) + " free AI replies left. Continue whenever you're ready.")
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
-    with db() as c: c.execute('DELETE FROM messages WHERE user_id=?',(update.effective_user.id,))
-    await update.message.reply_text('Your stored beta conversation history has been deleted. You can start fresh with /start.')
+    with db() as c:
+        c.execute("DELETE FROM messages WHERE user_id=?", (update.effective_user.id,))
+    await update.effective_message.reply_text(
+        "Your stored chat messages have been deleted. Your trial reply count and onboarding choices remain. "
+        "Use /start to revisit the welcome.")
 
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
-    await update.message.reply_text('How helpful has this conversation been?',reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('❤️ Very',callback_data='rate:very'),InlineKeyboardButton('🙂 Somewhat',callback_data='rate:somewhat'),InlineKeyboardButton('👎 Not really',callback_data='rate:not_really')]]))
+    await update.effective_message.reply_text("How helpful was this conversation?",
+        reply_markup=buttons(["❤️ Very", "🙂 Somewhat", "👎 Not really"], "r:", cols=3))
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q=update.callback_query
+    q = update.callback_query
     await q.answer()
     if not await gate(update): return
-    with db() as c: c.execute('INSERT INTO feedback (user_id,rating) VALUES (?,?)',(q.from_user.id,q.data.split(':',1)[1]))
-    await q.message.reply_text('Thank you! Your feedback helps Elena refine the Alchemist.')
+    if not q.data[2:].isdigit(): return
+    idx = int(q.data[2:])
+    if idx >= 3: return
+    with db() as c:
+        c.execute("INSERT INTO feedback(user_id,rating) VALUES (?,?)", (q.from_user.id, ["very","somewhat","not_really"][idx]))
+    await q.message.reply_text("Thank you! Your feedback helps refine the Alchemist.")
 
 async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Your Telegram numeric user ID: '+str(update.effective_user.id))
+    await update.effective_message.reply_text("Your Telegram numeric user ID: " + str(update.effective_user.id))
 
-if __name__ == '__main__':
-    if not TOKEN or not API_KEY: raise RuntimeError('Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY in hosting environment')
-    if not ALLOWED: log.warning('No users are authorized yet; /id remains available.')
-    app=Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler('id',id_cmd))
-    app.add_handler(CommandHandler('start',start))
-    app.add_handler(CommandHandler('reset',reset))
-    app.add_handler(CommandHandler('feedback',feedback))
-    app.add_handler(CallbackQueryHandler(status,pattern=r'^status:'))
-    app.add_handler(CallbackQueryHandler(rate,pattern=r'^rate:'))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,chat))
+async def remaining_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    used = profile(update.effective_user.id)[5]
+    await update.effective_message.reply_text(
+        "You have " + ("unlimited owner testing access" if update.effective_user.id in OWNERS
+                        else str(max(0, FREE_REPLIES-used)) + " of 10 free AI replies remaining") + ".")
+
+if __name__ == "__main__":
+    if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
+    if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
+    app = Application.builder().token(TOKEN).build()
+    for cmd, fn in [("id", id_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd)]:
+        app.add_handler(CommandHandler(cmd, fn))
+    app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|p|g|n):"))
+    app.add_handler(CallbackQueryHandler(rate, pattern=r"^r:"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling(drop_pending_updates=True)
