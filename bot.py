@@ -51,7 +51,7 @@ PATTERNS = [
     "I fall for emotionally unavailable men",
     "I give too much and receive too little",
     "I'm in a relationship but feel unfulfilled",
-    "Men I want don't choose me",
+    "Men I want don't choose me, and I'm not attracted to those who do",
     "I struggle to trust or receive love",
     "I'm not sure yet"
 ]
