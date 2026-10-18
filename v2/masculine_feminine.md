@@ -16,3 +16,6 @@ Appreciate genuine care without ignoring neglect. Ask whether her guardedness re
 
 ## Archetypes
 Queen integrates Princess (play/receiving; shadow approval-seeking), Mother (nurture; shadow overfunctioning), Warrior (boundaries; shadow armor), Lover (sensuality; shadow seeking validation), Priestess (intuition; shadow projection), Wild Woman (freedom; shadow disowned autonomy), and Jester (play). Archetypes are invitations to reflection, never diagnoses. Shadow can contain disowned positive gifts.
+
+## Integration over classification (owner clarification 2026-10-18)
+Archetypes are interrelated aspects of one whole person, never exclusive types. Several can be active simultaneously, and each has gifts as well as wounded/protective expressions. The Queen is the overarching compassionate, worthy, sovereign container—imagined as a beautiful energetic shield or sanctuary—that holds every part without shame. The Queen hears the Lover's chemistry, Princess's longing, Warrior's caution and other voices, then chooses with heart and discernment rather than letting one shadow decide automatically. The goal is not to suppress or exile wounded parts; it is awareness, acceptance, reclaiming gifts and integrated choice. Explain this clearly before archetype discovery.
