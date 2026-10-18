@@ -123,48 +123,30 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with db() as conn:
         current = conn.execute("SELECT patterns,stage FROM profiles WHERE user_id=?", (uid,)).fetchone()
         if kind == "s" and idx < len(STATUS):
-            conn.execute("UPDATE profiles SET status=?,patterns=NULL,goal=NULL,stage=1 WHERE user_id=?", (STATUS[idx][0], uid))
+            conn.execute("UPDATE profiles SET status=?,patterns=NULL,goal=NULL,stage=2 WHERE user_id=?", (STATUS[idx][0], uid))
             await q.message.reply_text(
-                "Beautiful, before we explore your love life, here's something worth knowing.\n\n"
-                "We sometimes repeat relationship patterns without realizing it: giving more than we receive, "
-                "falling for unavailable partners, or carrying all the emotional work. Sometimes the pattern "
-                "is in our responses or what feels familiar; sometimes the other person simply cannot offer "
-                "the relationship we want. This is about curiosity, never blame.\n\n"
-                "Which experiences feel familiar? Choose up to two, or tell me your story in your own words.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(p, callback_data="p:"+str(i))] for i,p in enumerate(PATTERNS)] + [[InlineKeyboardButton("Continue", callback_data="c:0")]]))
-        elif kind == "p" and idx < len(PATTERNS):
-            chosen = [x for x in (current[0] or "").split(" | ") if x]
-            pick = PATTERNS[idx]
-            if pick in chosen:
-                chosen.remove(pick)
-            elif len(chosen) < 2:
-                chosen.append(pick)
-            else:
-                await q.message.reply_text("Choose up to two patterns, then tap Continue.", reply_markup=buttons(["Continue"], "c:"))
-                return
-            conn.execute("UPDATE profiles SET patterns=?,stage=1 WHERE user_id=?", (" | ".join(chosen), uid))
-            labels = ["Continue to our conversation"] + [("✓ " if p in chosen else "") + p for p in PATTERNS]
-            markup = InlineKeyboardMarkup([[InlineKeyboardButton(labels[0], callback_data="c:0")]] +
-                [[InlineKeyboardButton(labels[i+1], callback_data="p:"+str(i))] for i in range(len(PATTERNS))])
-            await q.message.reply_text("Selected: " + (", ".join(chosen) or "none yet") +
-                ". You can select a second, change your choices, or continue.", reply_markup=markup)
-        elif kind == "c":
-            chosen = current[0] or "not specified"
-            conn.execute("UPDATE profiles SET stage=3 WHERE user_id=?", (uid,))
+                "Thank you, beautiful. We can begin wherever your heart is today. ✨\n\n"
+                "Would you like to discover the feminine archetypes shaping your love life, "
+                "or simply tell me what's happening? There is no wrong place to begin.",
+                reply_markup=buttons(
+                    ["✨ Explore my feminine archetypes", "💬 Tell you what's happening in my love life"], "a:"))
+        elif kind == "a" and idx == 0:
+            conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("archetypes", uid))
             await q.message.reply_text(
-                "Thank you for sharing. One lens we'll sometimes use is feminine archetypes: "
-                "the Mother who nurtures, the Princess who longs to be cherished, the Warrior who protects, "
-                "the Lover who feels and desires. Each has gifts and protective habits. "
-                "Your Queen is the loving, discerning part that can listen to all of them and choose. "
-                "We'll explore only what fits your real experience, never put you in a box.\n\n"
-                "What would you like me to call you? A first name or nickname is optional.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Skip", callback_data="n:0")]]))
-        elif kind == "n":
-            conn.execute("UPDATE profiles SET stage=4 WHERE user_id=?", (uid,))
+                "Darling, you are not just one archetype. We all carry different facets of the feminine: "
+                "the Princess who dreams and receives, the Mother who nurtures, the Lover who desires, "
+                "the Warrior who protects, and the Priestess who trusts her intuition. "
+                "Your Queen can listen to them all and choose with love and discernment.\n\n"
+                "Some of these parts may be flourishing; others may be working a little too hard. "
+                "Let's explore them through your real experiences, not a label or a test.\n\n"
+                "When you think about your love life lately, do you find yourself doing most of the caring "
+                "and pursuing, holding back to protect yourself, longing to be chosen, or something else? "
+                "Tell me what resonates.")
+        elif kind == "a" and idx == 1:
+            conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("conversation", uid))
             await q.message.reply_text(
-                "I'm listening, beautiful. Tell me what's been happening, in your own words. "
-                "We can explore the pattern together, one step at a time. "
-                "Your first personalized AI reply begins when you send a message.")
+                "I'm here, beautiful. 💛 What's happening in your love life right now? "
+                "Take your time and tell me as much or as little as you wish.")
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
@@ -195,7 +177,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if stage == 1:
             with db() as conn:
                 conn.execute("UPDATE profiles SET stage=4 WHERE user_id=?", (uid,))
-        elif stage < 3:
+        elif stage == 2:
+            with db() as conn:
+                conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("conversation", uid))
+        elif stage < 2:
             await update.effective_message.reply_text("Send /start to begin the discovery journey.")
             return
         if uid not in OWNERS and used >= FREE_REPLIES:
@@ -282,7 +267,7 @@ if __name__ == "__main__":
     app = Application.builder().token(TOKEN).build()
     for cmd, fn in [("id", id_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
-    app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|p|c|n):"))
+    app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling(drop_pending_updates=True)
