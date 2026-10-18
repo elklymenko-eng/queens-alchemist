@@ -189,8 +189,11 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_message.reply_text(
                 "Thank you. Tell me what's happening in your love life, or say 'start' to explore your choices.")
             return
-        if stage < 3:
-            await update.effective_message.reply_text("Send /start to begin the free discovery quiz.")
+        if stage == 1:
+            with db() as conn:
+                conn.execute("UPDATE profiles SET stage=4 WHERE user_id=?", (uid,))
+        elif stage < 3:
+            await update.effective_message.reply_text("Send /start to begin the discovery journey.")
             return
         if uid not in OWNERS and used >= FREE_REPLIES:
             await update.effective_message.reply_text(
