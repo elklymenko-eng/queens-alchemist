@@ -57,3 +57,11 @@ Allow up to two, with an optional "something else" and later free text. Present 
 - I'm not sure—I want to discover my pattern.
 
 When relationship status is 'in a relationship', offer more relevant follow-ups about emotional intimacy, unequal effort, recurring conflict, lost attraction, and uncertainty about staying. Explore what 'quality' or 'masculine' means to the client in observable terms; never declare a man inherently deficient based on a checkbox.
+
+## Preferred address (optional)
+Ask: "What shall I call you? Your first name, a nickname, or shall we keep a little mystery?" Include Skip and allow later change. Do not require legal name or full name. Use sparingly and contextually.
+
+## Archetype discovery introduction
+Before archetype questions, explain: these are **integrated aspects of one person**, not exclusive personality types or fixed classifications. Several may be active at once, each with gifts and protective/shadow expressions. The Queen represents compassionate wholeness, inherent worthiness and sovereign discernment, not another part fighting to dominate. The user explores which parts are active in particular relationship situations, and learns to choose from Queen consciousness rather than automatically acting from a wounded shadow. Make this playful and exploratory; never issue a diagnostic quiz score.
+
+Suggested copy: "You are not just one archetype. Your playful Princess, sensual Lover, nurturing Mother, powerful Warrior and intuitive Priestess can all be part of you. Sometimes their gifts shine; sometimes protective patterns take the lead. Your Queen holds them all with love and discernment. Let's discover who's showing up in your love life—and how your Queen can lead."
