@@ -100,11 +100,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     profile(uid)
     await update.effective_message.reply_text(
-        "👑 Welcome to The Queen's Alchemist. Discover what's been running your love life—and how your Queen can lead.\n\n"
-        "I'm an AI coaching companion, not Elena or a therapist. Your messages are processed by an AI provider "
-        "and stored by the bot for continuity. Avoid identifying or highly sensitive details. "
-        "Use /reset to clear your stored chat messages (not your trial counter).\n\n"
-        "You have 10 free AI replies; the welcome quiz doesn't count. Let's begin.\n\nWhere are you in your love life?",
+        "👑 Welcome to The Queen's Alchemist, beautiful!\n\n"
+        "Your love life isn't another problem to solve. It's an invitation to discover yourself, "
+        "reclaim your feminine power, and create a love in which you feel truly cherished.\n\n"
+        "I'm your AI coaching companion, guided by Elena's Queen's Alchemy method, courses, "
+        "and coaching materials. Together we'll explore your patterns, awaken your inner Queen, "
+        "and navigate love with an open heart and clear discernment.\n\n"
+        "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider "
+        "and stored for continuity. Please avoid identifying or highly sensitive details. "
+        "Use /reset to clear your chat history (your trial count stays).\n\n"
+        "✨ Your first 10 personalized AI replies are my gift to you. "
+        "This discovery journey doesn't use any of them.\n\n"
+        "Shall we begin, darling? Where are you in your love life right now?",
         reply_markup=buttons([s[0] for s in STATUS], "s:"))
 
 async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -176,7 +183,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if uid not in OWNERS and used >= FREE_REPLIES:
             await update.effective_message.reply_text(
                 "👑 You've enjoyed your 10 free Alchemist replies. Thank you for exploring! "
-                "Use /feedback to share what helped. If you want to continue, explore the self-paced course: " + COURSE_URL + "\\nOr private mentorship: " + MENTORSHIP_URL + ".")
+                "Use /feedback to share what helped. If you want to continue, explore the self-paced course: " + COURSE_URL + "\nOr private mentorship: " + MENTORSHIP_URL + ".")
             return
         with db() as c:
             history = c.execute("SELECT role,content FROM messages WHERE user_id=? ORDER BY ts DESC,rowid DESC LIMIT 12", (uid,)).fetchall()[::-1]
