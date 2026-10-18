@@ -128,7 +128,7 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "is in our responses or what feels familiar; sometimes the other person simply cannot offer "
                 "the relationship we want. This is about curiosity, never blame.\n\n"
                 "Which experiences feel familiar? Choose up to two, or tell me your story in your own words.",
-                reply_markup=buttons(PATTERNS, "p:"))
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(p, callback_data="p:"+str(i))] for i,p in enumerate(PATTERNS)] + [[InlineKeyboardButton("Continue", callback_data="c:0")]]))
         elif kind == "p" and idx < len(PATTERNS):
             chosen = [x for x in (current[0] or "").split(" | ") if x]
             pick = PATTERNS[idx]
