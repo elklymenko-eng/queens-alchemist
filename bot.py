@@ -62,7 +62,8 @@ GOALS = [
 def db():
     c = sqlite3.connect(DB, timeout=20)
     c.execute("CREATE TABLE IF NOT EXISTS messages (user_id INTEGER, role TEXT, content TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
-    c.execute("CREATE TABLE IF NOT EXISTS feedback (user_id INTEGER, rating TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")\n    c.execute("CREATE TABLE IF NOT EXISTS feedback_notes (user_id INTEGER, note TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE TABLE IF NOT EXISTS feedback (user_id INTEGER, rating TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE TABLE IF NOT EXISTS feedback_notes (user_id INTEGER, note TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
     c.execute("""CREATE TABLE IF NOT EXISTS profiles (
         user_id INTEGER PRIMARY KEY, status TEXT, patterns TEXT, goal TEXT,
         preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
