@@ -43,3 +43,17 @@ Show contextually after value has been delivered, and transparently at the trial
 
 ## Metrics to watch
 Start-to-completion rate, first free-text response rate, first practice uptake, number of replies used, helpfulness feedback, coaching click-through, self-study interest, paid AI conversion. Aggregate minimally and respect privacy.
+
+## Updated pattern selection (owner feedback 2026-10-18)
+Allow up to two, with an optional "something else" and later free text. Present recognizable experiences, not clinical/archetype diagnoses:
+- I don't seem to attract the quality men I desire.
+- Men pursue me intensely, then pull away or disappear.
+- I attract passive men and end up doing all the work.
+- I fall for emotionally unavailable men.
+- I give too much and receive too little.
+- I'm in a relationship, but I don't feel cherished or fulfilled.
+- I attract men I'm not interested in—and the ones I want don't choose me.
+- I struggle to trust, open up, or receive love.
+- I'm not sure—I want to discover my pattern.
+
+When relationship status is 'in a relationship', offer more relevant follow-ups about emotional intimacy, unequal effort, recurring conflict, lost attraction, and uncertainty about staying. Explore what 'quality' or 'masculine' means to the client in observable terms; never declare a man inherently deficient based on a checkbox.
