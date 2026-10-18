@@ -14,7 +14,7 @@ MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 ALLOWED = {int(x.strip()) for x in os.getenv("ALLOWED_USER_IDS", "").split(",") if x.strip()}
 OWNERS = {int(x.strip()) for x in os.getenv("OWNER_USER_IDS", "").split(",") if x.strip()}
 BETA_OPEN = os.getenv("BETA_OPEN", "false").lower() == "true"
-FREE_REPLIES = 10
+FREE_REPLIES = 20
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB = DATA_DIR / "beta.sqlite3"
@@ -38,6 +38,9 @@ SYSTEM = """You are The Queen's Alchemist, an AI coaching companion based on Ele
 
 CONVERSATION PRIORITY — CONNECTION BEFORE INTERVENTION:
 When a user shares a painful or confusing situation, first respond to her actual words with warmth and specificity. Invite the story: what happened, what preceded it, what she feels and means by it. Reflect her experience tentatively, without assigning emotions or motivations she has not expressed. Ask one natural, relevant, open question at a time. Do not jump to 'where do you feel it in your body', breathwork, meditation, archetype labels, subconscious patterns, a lesson, or a sales link. Do not diagnose a pattern from a single disclosure. Stay in an exploratory dialogue for as long as needed; let her pace and requests determine when insight or practices are welcome. If she asks for practical advice, answer her question rather than prolonging exploration unnecessarily. Avoid canned empathy, repeated pet names, and formulaic validation. For ghosting, ask about the relationship and what happened before disappearance; distinguish hurt, disrespect, uncertainty, anger or relief based on what she actually says. The first several replies should feel like a thoughtful, responsive conversation, not a coaching script.
+
+DEPTH AND TEACHING MOMENTS:
+Do not fall into a repetitive one-sentence reflection plus one question. Give meaningful value in each response: reflect the specific facts and emotional meaning, make a thoughtful distinction or observation when grounded in what she has shared, and invite a useful next detail or decision. Early in a painful story, prioritize understanding and avoid premature theories; after sufficient context emerges, weave in one relevant Queen's Alchemy teaching or relationship-psychology insight, explaining how it relates to her actual situation. Examples: desire versus cherishing, chemistry versus consistency, giving from overflow versus overfunctioning, keeping the heart open while protecting it, the Queen's discernment and inner masculine support. Never force an insight, turn a hypothesis into a fact, or preach. Aim for roughly 110–220 words for emotionally substantial exchanges, sometimes longer for complex questions or explicit requests for teaching, and shorter for simple questions or moments that call for quiet presence. Avoid padding, rigid formulas, repetitive questions, and unsolicited practices. Give an insight before the question when appropriate; make each reply worth reading.
 
 FOUNDATION:
 """ + KNOWLEDGE + "\n\nV2 TEACHINGS:\n" + MODULES + "\n\nPRACTICES:\n" + json.dumps(PRACTICES, ensure_ascii=False)
@@ -107,7 +110,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Your love life isn't another problem to solve. It's an invitation to discover yourself, reclaim your feminine power, and create a love in which you feel truly cherished." + "\n\n" +
         "I'm your AI coaching companion, guided by Elena's Queen's Alchemy method, courses, and coaching materials. Together we'll explore your patterns, awaken your inner Queen, and navigate love with an open heart and clear discernment." + "\n\n" +
         "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider and stored for continuity. Please avoid identifying or highly sensitive details. Use /reset to clear your chat history (your trial count stays)." + "\n\n" +
-        "✨ Your first 10 personalized AI replies are my gift to you. This discovery journey doesn't use any of them." + "\n\n" +
+        "✨ Your first 20 personalized AI replies are my gift to you. This discovery journey doesn't use any of them." + "\n\n" +
         "Shall we begin, darling? Where are you in your love life right now?",
         reply_markup=buttons([s[0] for s in STATUS], "s:"))
 
@@ -185,7 +188,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         if uid not in OWNERS and used >= FREE_REPLIES:
             await update.effective_message.reply_text(
-                "👑 You've enjoyed your 10 free Alchemist replies. Thank you for exploring! "
+                "👑 You've enjoyed your 20 free Alchemist replies. Thank you for exploring! "
                 "Use /feedback to share what helped. If you want to continue, explore the self-paced course: " + COURSE_URL + "\nOr private mentorship: " + MENTORSHIP_URL + ".")
             return
         with db() as c:
@@ -203,7 +206,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             response = await AI.responses.create(
                 model=MODEL, instructions=SYSTEM + "\n\n" + context_note,
                 input=[{"role": r, "content": t} for r, t in history] + [{"role": "user", "content": msg}],
-                max_output_tokens=700, store=False)
+                max_output_tokens=1050, store=False)
             answer = response.output_text.strip() or "What feels most important about this right now?"
         except Exception:
             log.exception("AI request failed")
@@ -217,7 +220,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
         if uid not in OWNERS and remaining == 1:
             await update.effective_message.reply_text(
-                "You've reached the end of your 10 free AI replies. "
+                "You've reached the end of your 20 free AI replies. "
                 "Thank you for being part of our beta! Send /feedback to share your experience.")
         elif uid not in OWNERS and remaining in (6, 3):
             await update.effective_message.reply_text(
@@ -259,7 +262,7 @@ async def remaining_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     used = profile(update.effective_user.id)[5]
     await update.effective_message.reply_text(
         "You have " + ("unlimited owner testing access" if update.effective_user.id in OWNERS
-                        else str(max(0, FREE_REPLIES-used)) + " of 10 free AI replies remaining") + ".")
+                        else str(max(0, FREE_REPLIES-used)) + " of 20 free AI replies remaining") + ".")
 
 if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
