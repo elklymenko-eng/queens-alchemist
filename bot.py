@@ -227,11 +227,6 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
-        if uid not in OWNERS and used + 1 in (3, 8):
-            await update.effective_message.reply_text(
-                "A little Queen's Alchemist check-in: how helpful has this felt so far? "
-                "This doesn't use a free reply.",
-                reply_markup=buttons(["❤️ Very", "🙂 Somewhat", "👎 Not really", "✍️ Share a thought"], "f:"))
         if uid not in OWNERS and remaining == 1:
             await update.effective_message.reply_text(
                 "You've reached the end of your 10 free AI replies. "
