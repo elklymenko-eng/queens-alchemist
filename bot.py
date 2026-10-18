@@ -229,7 +229,7 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     await update.effective_message.reply_text("How helpful was this conversation?",
-        reply_markup=buttons(["❤️ Very", "🙂 Somewhat", "👎 Not really"], "r:", cols=3))
+        reply_markup=buttons(["❤️ Very", "🙂 Somewhat", "👎 Not really", "✍️ Share a thought"], "f:"))
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -237,6 +237,10 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     if not q.data[2:].isdigit(): return
     idx = int(q.data[2:])
+    if idx == 3:
+        context.user_data["awaiting_feedback"] = True
+        await q.message.reply_text("What resonated, or what could improve? Your next message is free feedback.")
+        return
     if idx >= 3: return
     with db() as c:
         c.execute("INSERT INTO feedback(user_id,rating) VALUES (?,?)", (q.from_user.id, ["very","somewhat","not_really"][idx]))
