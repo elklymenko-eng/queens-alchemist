@@ -100,17 +100,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     profile(uid)
     await update.effective_message.reply_text(
-        "👑 Welcome to The Queen's Alchemist, beautiful!\n\n"
-        "Your love life isn't another problem to solve. It's an invitation to discover yourself, "
-        "reclaim your feminine power, and create a love in which you feel truly cherished.\n\n"
-        "I'm your AI coaching companion, guided by Elena's Queen's Alchemy method, courses, "
-        "and coaching materials. Together we'll explore your patterns, awaken your inner Queen, "
-        "and navigate love with an open heart and clear discernment.\n\n"
-        "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider "
-        "and stored for continuity. Please avoid identifying or highly sensitive details. "
-        "Use /reset to clear your chat history (your trial count stays).\n\n"
-        "✨ Your first 10 personalized AI replies are my gift to you. "
-        "This discovery journey doesn't use any of them.\n\n"
+        "👑 Welcome to The Queen's Alchemist, beautiful!" + "\n\n" +
+        "Your love life isn't another problem to solve. It's an invitation to discover yourself, reclaim your feminine power, and create a love in which you feel truly cherished." + "\n\n" +
+        "I'm your AI coaching companion, guided by Elena's Queen's Alchemy method, courses, and coaching materials. Together we'll explore your patterns, awaken your inner Queen, and navigate love with an open heart and clear discernment." + "\n\n" +
+        "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider and stored for continuity. Please avoid identifying or highly sensitive details. Use /reset to clear your chat history (your trial count stays)." + "\n\n" +
+        "✨ Your first 10 personalized AI replies are my gift to you. This discovery journey doesn't use any of them." + "\n\n" +
         "Shall we begin, darling? Where are you in your love life right now?",
         reply_markup=buttons([s[0] for s in STATUS], "s:"))
 
