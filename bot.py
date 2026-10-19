@@ -1,4 +1,4 @@
-import os, json, sqlite3, logging, asyncio
+import os, json, sqlite3, logging, asyncio, tempfile
 from pathlib import Path
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -163,9 +163,9 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "I'm here, beautiful. 💛 What's happening in your love life right now? "
                 "Take your time and tell me as much or as little as you wish.")
 
-async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=None):
     if not await gate(update): return
-    msg = (update.effective_message.text or "").strip()
+    msg = (msg_override if msg_override is not None else (update.effective_message.text or "")).strip()
     if not msg: return
     if context.user_data.pop("awaiting_feedback", False):
         with db() as c:
@@ -238,6 +238,39 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_message.reply_text(
                 "👑 " + str(remaining-1) + " free AI replies left. Continue whenever you're ready.")
 
+async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    voice = update.effective_message.voice
+    if not voice: return
+    if voice.duration and voice.duration > 180:
+        await update.effective_message.reply_text("Please keep voice notes under 3 minutes, beautiful.")
+        return
+    if voice.file_size and voice.file_size > 10_000_000:
+        await update.effective_message.reply_text("That voice note is too large. Please send a shorter one.")
+        return
+    path = None
+    try:
+        await update.effective_chat.send_action("typing")
+        audio = await context.bot.get_file(voice.file_id)
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
+            path = tmp.name
+        await audio.download_to_drive(custom_path=path)
+        with open(path, "rb") as source:
+            transcript = await AI.audio.transcriptions.create(model="whisper-1", file=source)
+        words = (transcript.text or "").strip()
+        if not words:
+            await update.effective_message.reply_text("I couldn't make out that voice note. Could you try again?")
+            return
+        await chat(update, context, msg_override=words)
+    except Exception:
+        log.exception("Voice transcription failed")
+        await update.effective_message.reply_text("I couldn't process that voice note. Please try again or send text; this didn't use a reply.")
+    finally:
+        if path:
+            try: os.unlink(path)
+            except OSError: pass
+
+
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     with db() as c:
@@ -284,5 +317,6 @@ if __name__ == "__main__":
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
+    app.add_handler(MessageHandler(filters.VOICE, voice_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling(drop_pending_updates=True)
