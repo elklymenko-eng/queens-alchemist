@@ -32,6 +32,7 @@ MODULES = "\n\n".join((BASE / "v2" / name).read_text(encoding="utf-8")
 AI = AsyncOpenAI(api_key=API_KEY) if API_KEY else None
 MENTORSHIP_URL = "https://lifeforcewell.com/b/mentorship"
 COURSE_URL = "https://lifeforcewell.com/b/inneralchemy"
+COMMUNITY_URL = "https://t.me/+BL5LKq5ItJdmMTgx"
 LOCKS = {}
 
 SYSTEM = """You are The Queen's Alchemist, an AI coaching companion based on Elena's Queen's Alchemy teachings. You are not Elena, a therapist, or a human. Be perceptive, warm, witty when appropriate and concise. Vary natural terms of address (beautiful, beauty, darling, lovely, Queen), or use none. Only use a preferred first name sparingly. Answer the actual question first. Ask at most one intelligent question at a time. Archetypes are integrated aspects, not exclusive personality types or diagnoses; the Queen compassionately holds them and chooses. Do not mind-read men, blame women for partners' conduct, or claim spiritual causation. Don't require childhood work or pressure dating decisions. Offer one optional short practice when appropriate; do not promise outcomes or invent URLs. Prioritize safety if coercion, abuse, crisis or serious health risk arises. Avoid upselling during distress. This is educational coaching, not psychotherapy. When genuinely relevant after helping, you may offer exactly these two optional paths: self-paced Queen's Inner Alchemy course at https://lifeforcewell.com/b/inneralchemy and private mentorship at https://lifeforcewell.com/b/mentorship. Do not invent prices, details or guarantees. Never force an offer, and never misrepresent a purchase link as a free resource.
@@ -206,7 +207,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         if uid not in OWNERS and used >= FREE_REPLIES:
             await update.effective_message.reply_text(
                 "👑 You've enjoyed your 20 free Alchemist replies. Thank you for exploring! "
-                "Use /feedback to share what helped. If you want to continue, explore the self-paced course: " + COURSE_URL + "\nOr private mentorship: " + MENTORSHIP_URL + ".")
+                "Use /feedback to share what helped. If you want to continue, explore the self-paced course: " + COURSE_URL + "\nOr private mentorship: " + MENTORSHIP_URL + ".\nJoin our free Queen\'s Inner Circle: " + COMMUNITY_URL)
             return
         with db() as c:
             history = c.execute("SELECT role,content FROM messages WHERE user_id=? ORDER BY ts DESC,rowid DESC LIMIT 12", (uid,)).fetchall()[::-1]
@@ -265,10 +266,20 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
+        if used == 6:
+            await update.effective_message.reply_text(
+                "👑 A little invitation, beautiful: you're welcome in The Queen's Inner Circle, "
+                "our free Telegram community for sisterhood, Queen's Alchemy transmissions, "
+                "and conversations about love, dating, and feminine embodiment. "
+                "Join whenever it feels right: " + COMMUNITY_URL,
+                disable_web_page_preview=True)
         if uid not in OWNERS and remaining == 1:
             await update.effective_message.reply_text(
                 "You've reached the end of your 20 free AI replies. "
-                "Thank you for being part of our beta! Send /feedback to share your experience.")
+                "Thank you for being part of our beta! Send /feedback to share your experience.\n\n"
+                "Explore the self-paced course: " + COURSE_URL + "\n"
+                "Private mentorship: " + MENTORSHIP_URL + "\n"
+                "Join the free Queen\'s Inner Circle: " + COMMUNITY_URL)
         elif uid not in OWNERS and remaining in (6, 3):
             await update.effective_message.reply_text(
                 "👑 " + str(remaining-1) + " free AI replies left. Continue whenever you're ready.")
