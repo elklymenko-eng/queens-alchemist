@@ -139,21 +139,21 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif kind == "a" and idx == 0:
             conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("archetypes", uid))
             await q.message.reply_text(
-                "✨ Welcome to the inner world of Queen's Alchemy, beautiful.\\n\\n"
+                "✨ Welcome to the inner world of Queen's Alchemy, beautiful.\n\n"
                 "Archetypes are symbolic parts of our psyche—different energies and ways of being that live within us. "
                 "Each carries gifts and shadows. The Princess brings playfulness and the joy of receiving; "
                 "the Priestess, intuition; the Mother, nourishment; the Warrior, assertiveness; "
-                "the Wild Woman, freedom; and the Lover, sensuality.\\n\\n"
+                "the Wild Woman, freedom; and the Lover, sensuality.\n\n"
                 "Their shadows are the patterns we may not yet recognize in ourselves. "
                 "We might project them onto others or find ourselves repeating reactions that no longer serve us. "
-                "But the shadow is not an enemy—it can hold tremendous power waiting to be understood and integrated.\\n\\n"
+                "But the shadow is not an enemy—it can hold tremendous power waiting to be understood and integrated.\n\n"
                 "For example, a Princess who knows her worth can delight in being cherished. "
                 "A wounded Princess may compare herself with other women, feel unworthy, "
                 "or try to earn love by becoming someone she thinks a man will choose. "
-                "Noticing that pattern isn't a reason for shame. It's where alchemy begins.\\n\\n"
+                "Noticing that pattern isn't a reason for shame. It's where alchemy begins.\n\n"
                 "Inspired in part by Jungian psychology, Queen's Alchemy explores how unconscious patterns "
                 "shape our experience and choices. As we bring them into awareness, we gain more freedom "
-                "to love, receive, discern, and choose. Your Queen is the loving presence that can hold every part of you. 👑\\n\\n"
+                "to love, receive, discern, and choose. Your Queen is the loving presence that can hold every part of you. 👑\n\n"
                 "Would you enjoy a little archetype discovery together, or is there a particular pattern "
                 "in your love life you'd like to explore first?"
             )
