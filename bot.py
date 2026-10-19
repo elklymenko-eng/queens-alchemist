@@ -258,7 +258,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
                 match_id = next((pid for keys, pid in keyword_map
                                  if any(k in context_words for k in keys)), "emotional_healing")
                 chosen = next(p for p in PRACTICES if p["id"] == match_id)
-            answer += "\\n\\n🎧 " + chosen["title"] + ": " + chosen["url"]
+            answer += "\n\n🎧 " + chosen["title"] + ": " + chosen["url"]
         with db() as c:
             c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "user", msg))
             c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "assistant", answer))
