@@ -81,6 +81,7 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS messages (user_id INTEGER, role TEXT, content TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
     c.execute("CREATE TABLE IF NOT EXISTS feedback (user_id INTEGER, rating TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
     c.execute("CREATE TABLE IF NOT EXISTS feedback_notes (user_id INTEGER, note TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("CREATE TABLE IF NOT EXISTS testimonials (user_id INTEGER, note TEXT, permission TEXT NOT NULL DEFAULT 'pending', ts DATETIME DEFAULT CURRENT_TIMESTAMP)")
     c.execute("""CREATE TABLE IF NOT EXISTS profiles (
         user_id INTEGER PRIMARY KEY, status TEXT, patterns TEXT, goal TEXT,
         preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
@@ -176,7 +177,17 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
     if context.user_data.pop("awaiting_feedback", False):
         with db() as c:
             c.execute("INSERT INTO feedback_notes(user_id,note) VALUES (?,?)", (update.effective_user.id, msg[:2000]))
-        await update.effective_message.reply_text("Thank you for sharing. Your feedback didn't use a free reply. 💛")
+            c.execute("INSERT INTO testimonials(user_id,note) VALUES (?,?)", (update.effective_user.id, msg[:2000]))
+            testimonial_id = c.execute("SELECT last_insert_rowid()").fetchone()[0]
+        await update.effective_message.reply_text(
+            "Thank you for sharing your experience. 💛 Would you allow us to use this exact paragraph "
+            "as a testimonial to introduce The Queen's Alchemist to other women? "
+            "This is entirely optional; your feedback is valuable either way.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✨ Yes, anonymously", callback_data=f"t:a:{testimonial_id}")],
+                [InlineKeyboardButton("💛 Yes, with my first name", callback_data=f"t:n:{testimonial_id}")],
+                [InlineKeyboardButton("🔒 Private feedback only", callback_data=f"t:p:{testimonial_id}")],
+            ]))
         return
     if len(msg) > 3500:
         await update.effective_message.reply_text("Please send a shorter message (under 3,500 characters).")
@@ -276,7 +287,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         if uid not in OWNERS and remaining == 1:
             await update.effective_message.reply_text(
                 "You've reached the end of your 20 free AI replies. "
-                "Thank you for being part of our beta! Send /feedback to share your experience.\n\n"
+                "Thank you for being part of our beta! I would love your honest feedback or a short testimonial. Tap /feedback to share a few sentences; you can choose whether they may be quoted in promotion.\n\n"
                 "Explore the self-paced course: " + COURSE_URL + "\n"
                 "Private mentorship: " + MENTORSHIP_URL + "\n"
                 "Join the free Queen\'s Inner Circle: " + COMMUNITY_URL)
@@ -327,7 +338,7 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
-    await update.effective_message.reply_text("How helpful was this conversation?",
+    await update.effective_message.reply_text("How was your experience with The Queen\'s Alchemist? Your feedback is welcome, and you can optionally share a paragraph about what you gained. Nothing is published without your permission.",
         reply_markup=buttons(["❤️ Very", "🙂 Somewhat", "👎 Not really", "✍️ Share a thought"], "f:"))
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -338,12 +349,39 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     idx = int(q.data[2:])
     if idx == 3:
         context.user_data["awaiting_feedback"] = True
-        await q.message.reply_text("What resonated, or what could improve? Your next message is free feedback.")
+        await q.message.reply_text("In your own words, what was your experience with The Queen\'s Alchemist? Did anything help you see yourself, dating, or relationships differently? A few sentences or a paragraph is wonderful. Honest criticism is equally welcome. Your next message is free feedback, not an AI reply.")
         return
     if idx >= 3: return
     with db() as c:
         c.execute("INSERT INTO feedback(user_id,rating) VALUES (?,?)", (q.from_user.id, ["very","somewhat","not_really"][idx]))
     await q.message.reply_text("Thank you! Your feedback helps refine the Alchemist.")
+
+async def testimonial_permission(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    try:
+        _, choice, item_id = q.data.split(":")
+        if choice not in ("a", "n", "p"): return
+        item_id = int(item_id)
+    except (ValueError, AttributeError):
+        return
+    permission = {"a": "anonymous", "n": "first_name", "p": "private"}[choice]
+    with db() as c:
+        changed = c.execute(
+            "UPDATE testimonials SET permission=? WHERE rowid=? AND user_id=? AND permission='pending'",
+            (permission, item_id, q.from_user.id)).rowcount
+    if not changed:
+        await q.message.reply_text("This feedback permission has already been recorded.")
+        return
+    if permission == "private":
+        await q.message.reply_text("Absolutely. Your feedback stays private and won't be used in promotion. Thank you! 💛")
+    else:
+        await q.message.reply_text(
+            "Thank you! You gave permission to use this paragraph " +
+            ("without your name" if permission == "anonymous" else "with your Telegram first name") +
+            " in Queen's Alchemist promotion. 💛")
+
 
 async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text("Your Telegram numeric user ID: " + str(update.effective_user.id))
@@ -363,6 +401,7 @@ if __name__ == "__main__":
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
+    app.add_handler(CallbackQueryHandler(testimonial_permission, pattern=r"^t:[anp]:[0-9]+$"))
     app.add_handler(MessageHandler(filters.VOICE, voice_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling(drop_pending_updates=True)
