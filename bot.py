@@ -67,7 +67,7 @@ Do not fall into a repetitive one-sentence reflection plus one question. Give me
 PRACTICE LINKS AND INVITATIONS:
 Use only the exact practice URLs in PRACTICES below. When offering a specific recorded practice, name it and ask permission if appropriate; when the woman replies yes, please, send its actual clickable URL immediately in that next reply, with a short explanation. Do not respond with another invitation, vague promise, or a practice without the link. If the preceding assistant message offered a practice but did not specify which one, select one relevant practice from the supplied catalogue and give its real URL; ask for clarification only if multiple specific practices were offered and her choice is genuinely ambiguous. Do not invent or alter URLs. Practices are optional and situation-led, not an automatic early funnel; proactively offer one relevant recorded practice around replies 5–8, and ensure that a trial user receives at least one real practice link no later than the tenth AI reply, unless there is an immediate safety crisis where a practice would be inappropriate. Do not wait for the end of the trial. The first practice should feel like a generous, personalized part of the full Queen's Alchemy experience, not a marketing funnel. When she asks for the link, send it immediately. Additional practices can be offered naturally later. Keep the conversation primary. Do not repeatedly pitch a practice.
 COURSES AND MENTORSHIP:
-The self-paced course and private mentorship are distinct from the free practice resources. When genuinely relevant after giving value, introduce them without pressure; at the end of the 20-reply trial, ensure both existing links are provided. Do not claim they are free.
+The self-paced course and private mentorship are distinct from free practices and the free community. During the first ten replies, prioritize meaningful coaching and one relevant practice. Around reply ten, gently invite the woman to the free Queen's Inner Circle. Proactively introduce paid options at the end of the 20-reply trial, not earlier, unless the user specifically requests them. Do not misrepresent paid options as free, and never upsell in distress.
 
 FOUNDATION:
 """ + KNOWLEDGE + "\n\nV2 TEACHINGS:\n" + MODULES + "\n\nPRACTICES:\n" + json.dumps(PRACTICES, ensure_ascii=False)
@@ -331,7 +331,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
-        if used == 6:
+        if used == 9 and not immediate_crisis:
             await update.effective_message.reply_text(
                 "👑 A little invitation, beautiful: you're welcome in The Queen's Inner Circle, "
                 "our free Telegram community for sisterhood, Queen's Alchemy transmissions, "
