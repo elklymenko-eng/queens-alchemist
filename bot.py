@@ -65,7 +65,7 @@ DEPTH AND TEACHING MOMENTS:
 Do not fall into a repetitive one-sentence reflection plus one question. Give meaningful value in each response: reflect the specific facts and emotional meaning, make a thoughtful distinction or observation when grounded in what she has shared, and invite a useful next detail or decision. Early in a painful story, prioritize understanding and avoid premature theories; after sufficient context emerges, weave in one relevant Queen's Alchemy teaching or relationship-psychology insight, explaining how it relates to her actual situation. Examples: desire versus cherishing, chemistry versus consistency, giving from overflow versus overfunctioning, keeping the heart open while protecting it, the Queen's discernment and inner masculine support. Never force an insight, turn a hypothesis into a fact, or preach. Aim for roughly 110–220 words for emotionally substantial exchanges, sometimes longer for complex questions or explicit requests for teaching, and shorter for simple questions or moments that call for quiet presence. Avoid padding, rigid formulas, repetitive questions, and unsolicited practices. Give an insight before the question when appropriate; make each reply worth reading.
 
 PRACTICE LINKS AND INVITATIONS:
-Use only the exact practice URLs in PRACTICES below. When offering a specific recorded practice, name it and ask permission if appropriate; when the woman replies yes, please, send its actual clickable URL immediately in that next reply, with a short explanation. Do not respond with another invitation, vague promise, or a practice without the link. If the preceding assistant message offered a practice but did not specify which one, select one relevant practice from the supplied catalogue and give its real URL; ask for clarification only if multiple specific practices were offered and her choice is genuinely ambiguous. Do not invent or alter URLs. Practices are optional and situation-led, not an automatic early funnel; usually allow a substantial conversation to develop (often around six or seven exchanges) before proactively offering a recorded practice, unless the woman requests one sooner or it is clearly helpful. Keep the conversation primary. Do not repeatedly pitch a practice.
+Use only the exact practice URLs in PRACTICES below. When offering a specific recorded practice, name it and ask permission if appropriate; when the woman replies yes, please, send its actual clickable URL immediately in that next reply, with a short explanation. Do not respond with another invitation, vague promise, or a practice without the link. If the preceding assistant message offered a practice but did not specify which one, select one relevant practice from the supplied catalogue and give its real URL; ask for clarification only if multiple specific practices were offered and her choice is genuinely ambiguous. Do not invent or alter URLs. Practices are optional and situation-led, not an automatic early funnel; proactively offer one relevant recorded practice around replies 5–8, and ensure that a trial user receives at least one real practice link no later than the tenth AI reply, unless there is an immediate safety crisis where a practice would be inappropriate. Do not wait for the end of the trial. The first practice should feel like a generous, personalized part of the full Queen's Alchemy experience, not a marketing funnel. When she asks for the link, send it immediately. Additional practices can be offered naturally later. Keep the conversation primary. Do not repeatedly pitch a practice.
 COURSES AND MENTORSHIP:
 The self-paced course and private mentorship are distinct from the free practice resources. When genuinely relevant after giving value, introduce them without pressure; at the end of the 20-reply trial, ensure both existing links are provided. Do not claim they are free.
 
@@ -251,6 +251,17 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             word in prior_assistant.lower()
             for word in ("practice", "meditation", "guided exercise", "video", "recording")
         )
+        # Check the entire stored conversation, not only the last 12 messages.
+        # This guarantees a genuine recorded practice during the free trial.
+        with db() as c:
+            earlier_assistant = c.execute(
+                "SELECT content FROM messages WHERE user_id=? AND role='assistant'", (uid,)
+            ).fetchall()
+        already_sent_practice = any(
+            p["url"] in text for (text,) in earlier_assistant for p in PRACTICES
+        )
+        practice_due = not already_sent_practice and used >= 9
+        practice_window = not already_sent_practice and 4 <= used <= 8
         remaining = FREE_REPLIES - used
         context_note = (
             "ONBOARDING (self-reported, tentative): status=" + str(status)
@@ -258,6 +269,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             + "; preferred address=" + str(name or "none")
             + ". Trial replies remaining including this one: " + str(remaining)
             + ". Do not repeat a rigid funnel; be helpful now. If user says start, invite one specific exploration."
+            + (" Around this stage, naturally offer ONE relevant recorded practice from PRACTICES, matched to her situation. Do not derail distress or force a sales pitch." if practice_window else "")
+            + (" IMPORTANT: By this reply, include ONE actual recorded practice URL from PRACTICES that fits her situation, unless responding to immediate danger or crisis." if practice_due else "")
             + (" IMPORTANT: User just accepted your offered practice. Provide the exact matching PRACTICES URL in this reply, immediately." if practice_followup else "")
         )
         await update.effective_chat.send_action("typing")
@@ -289,6 +302,29 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
                                  if any(k in context_words for k in keys)), "emotional_healing")
                 chosen = next(p for p in PRACTICES if p["id"] == match_id)
             answer += "\n\n🎧 " + chosen["title"] + ": " + chosen["url"]
+        # Deterministic backstop: an AI instruction alone cannot guarantee a link.
+        # Offer a real catalogue resource by reply ten, without interrupting crisis support.
+        crisis_terms = ("suicid", "kill myself", "self-harm", "hurt myself", "in immediate danger",
+                        "he threatened to kill", "he hit me", "being abused", "sexual assault")
+        immediate_crisis = any(term in msg.lower() for term in crisis_terms)
+        if practice_due and not immediate_crisis and not any(p["url"] in answer for p in PRACTICES):
+            topic = (str(pattern or "") + " " + str(goal or "") + " " + msg + " " +
+                     " ".join(t for _, t in history[-6:])).lower()
+            matches = [
+                (("ghost", "trigger", "anxious", "ruminat", "overthink", "emotion"), "master_emotions"),
+                (("boundary", "chasing", "protector", "inner masculine", "overgiv"), "inner_masculine"),
+                (("receive", "receptiv", "overwork", "effort"), "wu_wei"),
+                (("sensual", "pleasure", "lover", "desire"), "sensual_tao"),
+                (("dance", "movement", "playful"), "elemental_dance"),
+                (("stress", "exhaust", "tired", "relax"), "restorative_flow"),
+                (("inner child", "unworthy", "rejection", "healing"), "emotional_healing"),
+            ]
+            selected_id = next((pid for words, pid in matches
+                                if any(word in topic for word in words)), "emotional_healing")
+            chosen = next((p for p in PRACTICES if p["id"] == selected_id), PRACTICES[0])
+            answer += ("\\n\\nA little Queen's Alchemy gift for you: "
+                       + chosen["title"] + " — " + chosen["url"]
+                       + "\\nExplore it whenever it feels right; no pressure.")
         with db() as c:
             c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "user", msg))
             c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "assistant", answer))
