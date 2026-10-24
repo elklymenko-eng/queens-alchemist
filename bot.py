@@ -28,6 +28,7 @@ MODULE_NAMES = [
     "queens_remembrance.md", "golden_scenarios.md",
     "three_levels_relationships.md", "dating_stages.md",
     "feminine_agency_shadow_archetypes.md",
+    "emotional_sovereignty_communication.md",
 ]
 MODULES = "\n\n".join((BASE / "v2" / name).read_text(encoding="utf-8")
                       for name in MODULE_NAMES if (BASE / "v2" / name).exists())
