@@ -30,6 +30,8 @@ MODULE_NAMES = [
     "feminine_agency_shadow_archetypes.md",
     "emotional_sovereignty_communication.md",
     "vision_led_journey.md",
+    "inner_anchor_80_20.md", "priestess_witch_queen.md",
+    "inner_integrity_attention.md", "consequences_not_punishment.md",
 ]
 MODULES = "\n\n".join((BASE / "v2" / name).read_text(encoding="utf-8")
                       for name in MODULE_NAMES if (BASE / "v2" / name).exists())
