@@ -1,5 +1,6 @@
 import os, json, sqlite3, logging, asyncio, tempfile
 from pathlib import Path
+import alchemy_journal
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -115,6 +116,7 @@ def db():
         user_id INTEGER PRIMARY KEY, status TEXT, patterns TEXT, goal TEXT,
         preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
         replies_used INTEGER NOT NULL DEFAULT 0)""")
+    alchemy_journal.initialize(c)
     c.commit()
     return c
 
@@ -399,12 +401,45 @@ async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except OSError: pass
 
 
+async def journey_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    with db() as c:
+        entries = alchemy_journal.get_entries(c, update.effective_user.id)
+    await update.effective_message.reply_text(alchemy_journal.render(entries)[:3900])
+
+async def remember_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    raw = " ".join(context.args or []).strip()
+    field, _, value = raw.partition(" ")
+    if field not in alchemy_journal.FIELDS or not value.strip():
+        await update.effective_message.reply_text(
+            "To save something deliberately, send /remember vision Your dream relationship.\\n"
+            "Sections: " + ", ".join(alchemy_journal.FIELDS))
+        return
+    try:
+        with db() as c:
+            alchemy_journal.set_entry(c, update.effective_user.id, field, value)
+    except ValueError as exc:
+        await update.effective_message.reply_text(str(exc))
+        return
+    await update.effective_message.reply_text("👑 Saved to your private Alchemy Journal. View or edit it with /journey.")
+
+async def clearjournal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    if not context.args or context.args[0].lower() != "confirm":
+        await update.effective_message.reply_text(
+            "This permanently clears your Alchemy Journal. Send /clearjournal confirm to proceed.")
+        return
+    with db() as c:
+        alchemy_journal.clear(c, update.effective_user.id)
+    await update.effective_message.reply_text("Your Alchemy Journal has been cleared.")
+
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     with db() as c:
         c.execute("DELETE FROM messages WHERE user_id=?", (update.effective_user.id,))
     await update.effective_message.reply_text(
-        "Your stored chat messages have been deleted. Your trial reply count and onboarding choices remain. "
+        "Your stored chat messages have been deleted. Your Alchemy Journal is kept separately; use /clearjournal confirm to erase it. Your trial reply count and onboarding choices remain. 
         "Use /start to revisit the welcome.")
 
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -468,7 +503,7 @@ if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
     if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
     app = Application.builder().token(TOKEN).build()
-    for cmd, fn in [("id", id_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd)]:
+    for cmd, fn in [("id", id_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
