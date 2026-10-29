@@ -278,8 +278,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         remaining = FREE_REPLIES - used
         with db() as c:
             journal_entries = alchemy_journal.get_entries(c, uid)
-        journal_context = ("\n\nUSER-APPROVED ALCHEMY JOURNAL (not a diagnosis; may be revised):\n" +
-                           alchemy_journal.render(journal_entries)[:2400]) if journal_entries else ""
+        journal_context = ("USER-APPROVED ALCHEMY JOURNAL (not a diagnosis; may be revised): " + alchemy_journal.render(journal_entries)[:2400]) if journal_entries else ""
         context_note = (
             "ONBOARDING (self-reported, tentative): status=" + str(status)
             + "; pattern=" + str(pattern) + "; goal=" + str(goal)
