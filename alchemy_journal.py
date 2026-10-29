@@ -12,6 +12,8 @@ FIELDS = {
 MAX_ENTRY = 1200
 
 def initialize(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS journal_preferences (user_id INTEGER PRIMARY KEY, offered INTEGER NOT NULL DEFAULT 0, declined INTEGER NOT NULL DEFAULT 0, last_offer_at TEXT)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS journal_proposals (user_id INTEGER PRIMARY KEY, field TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS alchemy_journal (
         user_id INTEGER NOT NULL,
         field TEXT NOT NULL,
@@ -49,3 +51,39 @@ def render(entries):
             parts.append("\n" + label + ":\n" + entries[field])
     parts.append("\nEdit: /remember vision Your updated vision\nErase everything: /clearjournal")
     return "\n".join(parts)
+
+def propose(conn, uid, field, content):
+    if field not in FIELDS or not content.strip() or len(content) > MAX_ENTRY:
+        return False
+    conn.execute("""INSERT INTO journal_proposals(user_id,field,content)
+        VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET
+        field=excluded.field,content=excluded.content,created_at=CURRENT_TIMESTAMP""",
+        (uid, field, content.strip()))
+    conn.execute("""INSERT INTO journal_preferences(user_id,offered,last_offer_at)
+        VALUES(?,1,CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id) DO UPDATE SET
+        offered=1,last_offer_at=CURRENT_TIMESTAMP""", (uid,))
+    return True
+
+def pending(conn, uid):
+    return conn.execute("SELECT field,content FROM journal_proposals WHERE user_id=?", (uid,)).fetchone()
+
+def dismiss(conn, uid):
+    conn.execute("DELETE FROM journal_proposals WHERE user_id=?", (uid,))
+
+def decline(conn, uid):
+    dismiss(conn, uid)
+    conn.execute("""INSERT INTO journal_preferences(user_id,offered,declined)
+        VALUES(?,1,1) ON CONFLICT(user_id) DO UPDATE SET declined=1""", (uid,))
+
+def can_offer(conn, uid):
+    row = conn.execute("""SELECT offered,declined,last_offer_at
+        FROM journal_preferences WHERE user_id=?""", (uid,)).fetchone()
+    if pending(conn, uid) or (row and row[1]):
+        return False
+    if row and row[2]:
+        recent = conn.execute("""SELECT datetime(?) > datetime('now','-7 days')""",
+                              (row[2],)).fetchone()[0]
+        if recent:
+            return False
+    return True
