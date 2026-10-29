@@ -276,6 +276,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         practice_due = not already_sent_practice and used >= 9
         practice_window = not already_sent_practice and 4 <= used <= 8
         remaining = FREE_REPLIES - used
+        with db() as c:
+            journal_entries = alchemy_journal.get_entries(c, uid)
+        journal_context = ("\\n\\nUSER-APPROVED ALCHEMY JOURNAL (not a diagnosis; may be revised):\\n" +
+                           alchemy_journal.render(journal_entries)[:2400]) if journal_entries else ""
         context_note = (
             "ONBOARDING (self-reported, tentative): status=" + str(status)
             + "; pattern=" + str(pattern) + "; goal=" + str(goal)
@@ -289,7 +293,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         await update.effective_chat.send_action("typing")
         try:
             response = await AI.responses.create(
-                model=MODEL, instructions=SYSTEM + "\n\n" + context_note,
+                model=MODEL, instructions=SYSTEM + "\n\n" + context_note + journal_context,
                 input=[{"role": r, "content": t} for r, t in history] + [{"role": "user", "content": msg}],
                 max_output_tokens=1050, store=False)
             answer = response.output_text.strip() or "What feels most important about this right now?"
@@ -350,6 +354,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
+        await maybe_offer_journal(update, uid, msg, history, used)
         if used == 9 and not immediate_crisis:
             await update.effective_message.reply_text(
                 "👑 A little invitation, beautiful: you're welcome in The Queen's Inner Circle, "
@@ -399,6 +404,88 @@ async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if path:
             try: os.unlink(path)
             except OSError: pass
+
+
+async def journal_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    uid = q.from_user.id
+    action = q.data.split(":", 1)[1]
+    with db() as c:
+        proposal = alchemy_journal.pending(c, uid)
+        if action == "view":
+            await q.message.reply_text(alchemy_journal.render(alchemy_journal.get_entries(c, uid))[:3900])
+            return
+        if not proposal:
+            await q.message.reply_text("That journal invitation has expired. Use /journey to view your entries.")
+            return
+        field, content = proposal
+        if action == "save":
+            alchemy_journal.set_entry(c, uid, field, content)
+            alchemy_journal.dismiss(c, uid)
+            reply = "✨ Saved to your Alchemy Journal under " + alchemy_journal.FIELDS[field] + ". You can revise it anytime with /remember."
+        elif action == "edit":
+            alchemy_journal.dismiss(c, uid)
+            reply = ("Of course. Nothing saved yet. Send /remember " + field +
+                     " followed by your own wording when you're ready.")
+        elif action == "later":
+            alchemy_journal.dismiss(c, uid)
+            reply = "Of course, love. Nothing saved. We can simply keep talking. 💜"
+        elif action == "never":
+            alchemy_journal.decline(c, uid)
+            reply = "Understood. I won't suggest journal saves again. You can still use /remember anytime."
+        else:
+            return
+    await q.message.reply_text(reply)
+
+async def maybe_offer_journal(update, uid, msg, history, used):
+    # Only propose on clear, user-expressed insight or vision; no premature onboarding.
+    if used < 2 or not AI: return
+    with db() as c:
+        if not alchemy_journal.can_offer(c, uid): return
+    lowered = msg.lower()
+    signals = ("i realize", "i realised", "i've realized", "i have realized",
+               "i'm realizing", "i now understand", "i learned", "i've learned",
+               "i want a relationship", "i want to feel", "my ideal relationship",
+               "i deserve", "i no longer", "my boundary is", "i choose to",
+               "what i really want", "i'm recognizing")
+    if not any(x in lowered for x in signals): return
+    try:
+        response = await AI.responses.create(
+            model=MODEL,
+            instructions=("Identify a genuinely meaningful USER-EXPRESSED relationship vision, value, insight, inner-union realization, helpful practice, or next step. "
+                          "Do not diagnose, infer wounds, or invent facts. Return ONLY compact JSON with keys field and content. "
+                          "field must be one of: vision, standards, patterns, inner_union, practices, next_step; or field='none' if not suitable. "
+                          "content must be first-person, faithful to the user's own words, under 350 characters. "
+                          "Only propose a memory if the user explicitly expressed the idea."),
+            input=[{"role":"user","content":msg}],
+            max_output_tokens=180,store=False)
+        import re
+        raw = response.output_text.strip()
+        raw = re.sub(r"^\x60\x60\x60(?:json)?|\x60\x60\x60$", "", raw).strip()
+        candidate = json.loads(raw)
+        field, content = candidate.get("field"), candidate.get("content","")
+        if field not in alchemy_journal.FIELDS or not isinstance(content,str): return
+        with db() as c:
+            if not alchemy_journal.can_offer(c, uid): return
+            if not alchemy_journal.propose(c, uid, field, content): return
+        intro = ("👑 Darling, that's an insight worth remembering. I have an optional Alchemy Journal "
+                 "where we can keep your vision and discoveries for future conversations. "
+                 "Nothing is saved unless you approve.\n\n"
+                 if used < 7 else
+                 "👑 This feels like a meaningful insight. Shall we preserve it in your Alchemy Journal?\n\n")
+        await update.effective_message.reply_text(
+            intro + "Suggested entry — " + alchemy_journal.FIELDS[field] + ":\n“" + content + "”",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✨ Save this",callback_data="j:save"),
+                 InlineKeyboardButton("✏️ Edit first",callback_data="j:edit")],
+                [InlineKeyboardButton("Not now",callback_data="j:later"),
+                 InlineKeyboardButton("Don't suggest again",callback_data="j:never")],
+                [InlineKeyboardButton("📖 View Journal",callback_data="j:view")],
+            ]))
+    except Exception:
+        log.exception("Optional journal proposal failed")
 
 
 async def journey_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -507,6 +594,7 @@ if __name__ == "__main__":
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
+    app.add_handler(CallbackQueryHandler(journal_button, pattern=r"^j:(save|edit|later|never|view)$"))
     app.add_handler(CallbackQueryHandler(testimonial_permission, pattern=r"^t:[anp]:[0-9]+$"))
     app.add_handler(MessageHandler(filters.VOICE, voice_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
