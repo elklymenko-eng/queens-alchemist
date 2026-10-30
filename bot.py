@@ -526,7 +526,8 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with db() as c:
         c.execute("DELETE FROM messages WHERE user_id=?", (update.effective_user.id,))
     await update.effective_message.reply_text(
-        "Your stored chat messages have been deleted. Your Alchemy Journal is kept separately; use /clearjournal confirm to erase it. Your trial reply count and onboarding choices remain. 
+        "Your stored chat messages have been deleted. Your Alchemy Journal remains separate. "
+        "Use /clearjournal confirm to erase it. Your trial count and onboarding choices remain. "
         "Use /start to revisit the welcome.")
 
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
