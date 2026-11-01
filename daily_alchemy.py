@@ -75,7 +75,7 @@ async def deliver(bot, db):
                 try:
                     local = now.astimezone(ZoneInfo(zone))
                     day = local.date().isoformat()
-                    if local.hour < 8 or last == day:
+                    if local.hour != 8 or last == day:
                         continue
                     # Claim delivery first: restarts cannot double-send.
                     with db() as conn:
