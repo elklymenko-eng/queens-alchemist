@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import alchemy_journal
 import subscription
+import daily_alchemy
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
@@ -134,6 +135,7 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS daily_free_replies (user_id INTEGER PRIMARY KEY, utc_day TEXT NOT NULL)")
     alchemy_journal.initialize(c)
     subscription.initialize(c)
+    daily_alchemy.initialize(c)
     c.execute("CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY)")
     migration = "trial_reset_to_10_2026_11_01"
     if not c.execute("SELECT 1 FROM schema_migrations WHERE name=?", (migration,)).fetchone():
@@ -163,6 +165,127 @@ def profile(uid):
     with db() as c:
         c.execute("INSERT OR IGNORE INTO profiles(user_id) VALUES (?)", (uid,))
         return c.execute("SELECT status,patterns,goal,preferred_name,stage,replies_used FROM profiles WHERE user_id=?", (uid,)).fetchone()
+
+def alchemy_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✨ Daily Love Alchemy", callback_data="menu:daily")],
+        [InlineKeyboardButton("📖 My Alchemy Journal", callback_data="menu:journal")],
+        [InlineKeyboardButton("🌱 Start Fresh", callback_data="menu:reset")],
+        [InlineKeyboardButton("💬 My Replies", callback_data="menu:replies")],
+        [InlineKeyboardButton("👑 Membership", callback_data="menu:membership")],
+        [InlineKeyboardButton("❔ Help & Settings", callback_data="menu:help")],
+    ])
+
+async def menu_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    await update.effective_message.reply_text("👑 My Alchemy Menu — choose what you need, beautiful.", reply_markup=alchemy_menu())
+
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    await update.effective_message.reply_text(
+        "You can always ask me for help in ordinary words. Here are the shortcuts:\\n"
+        "/menu — your Alchemy Menu\\n/dailyon — morning Love Alchemy settings\\n"
+        "/dailyoff — pause morning messages\\n/remaining — reply allowance\\n"
+        "/journey — Alchemy Journal\\n/reset — clear chat history (keeps journal and replies)\\n"
+        "/start — welcome journey\\n/subscribe — membership\\n"
+        "/subscription — paid access status\\n/feedback — share feedback\\n"
+        "/paysupport — payment help", reply_markup=alchemy_menu())
+
+async def dailyon_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    profile(update.effective_user.id)
+    await update.effective_message.reply_text(
+        "✨ Daily Love Alchemy is free for everyone, even after the trial. "
+        "Choose your time zone for an 8 a.m. daily message:", reply_markup=daily_alchemy.zones())
+
+async def dailyoff_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    with db() as c:
+        c.execute("INSERT OR IGNORE INTO daily_alchemy(user_id) VALUES (?)", (update.effective_user.id,))
+        c.execute("UPDATE daily_alchemy SET enabled=0 WHERE user_id=?", (update.effective_user.id,))
+    await update.effective_message.reply_text(
+        "Your morning messages are paused. 💜 Resume anytime with /dailyon or /menu.")
+
+async def daily_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    uid = q.from_user.id
+    action = q.data
+    if action == "daily:choose":
+        await q.message.reply_text("Where shall I send your 8 a.m. morning magic? Choose your time zone:", reply_markup=daily_alchemy.zones())
+    elif action == "daily:later":
+        await q.message.reply_text("Of course, beautiful. The invitation is here whenever you're ready. /dailyon")
+    elif action == "daily:off":
+        with db() as c:
+            c.execute("INSERT OR IGNORE INTO daily_alchemy(user_id) VALUES (?)", (uid,))
+            c.execute("UPDATE daily_alchemy SET enabled=0 WHERE user_id=?", (uid,))
+        await q.message.reply_text("Paused. No more daily notifications until you opt in again. 💜")
+    elif action.startswith("daily:tz:"):
+        try:
+            index = int(action.rsplit(":",1)[1])
+            zone_name, zone = daily_alchemy.ZONES[index]
+        except (ValueError, IndexError):
+            return
+        with db() as c:
+            c.execute("INSERT OR IGNORE INTO daily_alchemy(user_id) VALUES (?)", (uid,))
+            c.execute("UPDATE daily_alchemy SET enabled=1,timezone=? WHERE user_id=?", (zone, uid))
+        await q.message.reply_text(
+            "✨ You're in! Your Daily Love Alchemy will arrive around 8 a.m. "
+            "in " + zone_name + " time, every day. Free forever. "
+            "Manage it with /menu, or pause anytime with /dailyoff.",
+            reply_markup=daily_alchemy.settings(True))
+
+async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    action = q.data
+    if action == "menu:open":
+        await q.message.reply_text("👑 My Alchemy Menu", reply_markup=alchemy_menu())
+    elif action == "menu:daily":
+        with db() as c:
+            row = c.execute("SELECT enabled,timezone FROM daily_alchemy WHERE user_id=?", (q.from_user.id,)).fetchone()
+        await q.message.reply_text(
+            "✨ Daily Love Alchemy: " + ("on" if row and row[0] else "off")
+            + (". Time zone: " + row[1] if row else "")
+            + ". Morning messages arrive around 8 a.m. local time.",
+            reply_markup=daily_alchemy.settings(bool(row and row[0])))
+    elif action == "menu:journal":
+        with db() as c:
+            entries = alchemy_journal.get_entries(c, q.from_user.id)
+        await q.message.reply_text(alchemy_journal.render(entries)[:3900] if entries else "Your Alchemy Journal is empty. Use /remember to save an insight.")
+    elif action == "menu:reset":
+        await q.message.reply_text("Start fresh? /reset deletes your stored chat messages but keeps your Journal and reply allowance. Then /start reopens onboarding. /clearjournal confirm separately erases your Journal.")
+    elif action == "menu:replies":
+        await q.message.reply_text("Use /remaining to see your free or paid AI reply allowance.")
+    elif action == "menu:membership":
+        await q.message.reply_text("Use /subscribe to see the 199-Star subscription, or /subscription to check active access.")
+    elif action == "menu:help":
+        await q.message.reply_text("Use /help for all shortcuts. You can also ask me for guidance in everyday language.")
+
+async def daily_scheduler_start(app):
+    app.bot_data["daily_task"] = asyncio.create_task(daily_alchemy.deliver(app.bot, db))
+    try:
+        await app.bot.set_my_commands([
+            ("start","Begin your journey"), ("menu","My Alchemy Menu"),
+            ("dailyon","Daily Love Alchemy settings"), ("dailyoff","Pause daily messages"),
+            ("remaining","Check replies"), ("journey","My Alchemy Journal"),
+            ("reset","Clear chat history"), ("subscribe","Subscribe"),
+            ("subscription","Subscription status"), ("feedback","Share feedback"),
+            ("help","Help and settings"), ("paysupport","Payment support"),
+        ])
+    except Exception:
+        log.exception("Could not publish Telegram command menu")
+
+async def daily_scheduler_stop(app):
+    task = app.bot_data.get("daily_task")
+    if task:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
@@ -398,6 +521,14 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
                 c.execute("INSERT INTO daily_free_replies(user_id,utc_day) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET utc_day=excluded.utc_day", (uid, daily_day))
             elif uid not in OWNERS:
                 c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
+        if uid not in OWNERS and not paid_active and 3 <= used <= 5:
+            with db() as c:
+                c.execute("INSERT OR IGNORE INTO daily_alchemy(user_id) VALUES (?)", (uid,))
+                invited = c.execute("UPDATE daily_alchemy SET offered=1 WHERE user_id=? AND offered=0", (uid,)).rowcount
+            if invited:
+                await update.effective_message.reply_text(
+                    "✨ A little morning magic? Receive a free Daily Love Alchemy insight and playful experiment every morning at 8 a.m. in your time zone — even after your trial ends. Would you like to opt in?",
+                    reply_markup=daily_alchemy.invitation())
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
         await maybe_offer_journal(update, uid, msg, history, used)
@@ -729,9 +860,11 @@ async def remaining_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
     if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
-    app = Application.builder().token(TOKEN).build()
-    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd)]:
+    app = Application.builder().token(TOKEN).post_init(daily_scheduler_start).post_shutdown(daily_scheduler_stop).build()
+    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("help", help_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
+    app.add_handler(CallbackQueryHandler(daily_button, pattern=r"^daily:"))
+    app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
     app.add_handler(CallbackQueryHandler(journal_button, pattern=r"^j:(save|edit|later|never|view)$"))
