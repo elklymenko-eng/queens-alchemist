@@ -589,6 +589,83 @@ async def testimonial_permission(update: Update, context: ContextTypes.DEFAULT_T
             " in Queen's Alchemist promotion. 💛")
 
 
+async def subscribe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    uid = update.effective_user.id
+    with db() as c:
+        if subscription.active(c, uid):
+            await update.effective_message.reply_text(
+                "Your Queen's Alchemist subscription is active. Check /subscription for remaining replies.")
+            return
+    await update.effective_message.reply_text(
+        "👑 Queen's Alchemist: 199 Telegram Stars every 30 days. "
+        "Includes up to 300 personalized AI replies per subscription period. "
+        "Renews automatically unless cancelled in Telegram. "
+        "You can review the price and confirm in Telegram before paying. "
+        "For billing questions or refunds, use /paysupport.")
+    await context.bot.send_invoice(
+        chat_id=update.effective_chat.id,
+        title="Queen's Alchemist — 30 days",
+        description="AI relationship coaching companion; up to 300 AI replies per 30-day period.",
+        payload=subscription.PAYLOAD,
+        provider_token="",
+        currency="XTR",
+        prices=[LabeledPrice("30-day subscription", subscription.PRICE_STARS)],
+        subscription_period=subscription.PERIOD_SECONDS,
+    )
+
+async def precheckout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.pre_checkout_query
+    valid = (query.invoice_payload == subscription.PAYLOAD
+             and query.currency == "XTR"
+             and query.total_amount == subscription.PRICE_STARS)
+    await query.answer(ok=valid, error_message=None if valid else "Invalid subscription invoice.")
+
+async def payment_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    payment = update.effective_message.successful_payment
+    if not payment or payment.invoice_payload != subscription.PAYLOAD:
+        return
+    if payment.currency != "XTR" or payment.total_amount != subscription.PRICE_STARS:
+        log.error("Unexpected Stars payment details for user %s", update.effective_user.id)
+        return
+    expiry = getattr(payment, "subscription_expiration_date", None)
+    if not expiry:
+        log.error("Subscription payment missing expiration for user %s", update.effective_user.id)
+        await update.effective_message.reply_text(
+            "Your payment arrived, but access needs manual verification. Please contact /paysupport.")
+        return
+    expiry_ts = int(expiry.timestamp()) if hasattr(expiry, "timestamp") else int(expiry)
+    with db() as c:
+        subscription.record_payment(c, update.effective_user.id,
+                                    payment.telegram_payment_charge_id, expiry_ts)
+    await update.effective_message.reply_text(
+        "👑 Welcome! Your paid Alchemist access is active. "
+        "Your conversation and Journal are right where you left them. "
+        "Use /subscription to check your remaining replies.")
+
+async def subscription_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    with db() as c:
+        active = subscription.active(c, update.effective_user.id)
+        remaining = subscription.remaining(c, update.effective_user.id) if active else 0
+        expiry = c.execute("SELECT expires_at FROM paid_subscriptions WHERE user_id=?",
+                           (update.effective_user.id,)).fetchone()
+    if not active:
+        await update.effective_message.reply_text(
+            "No active paid subscription found. Use /subscribe to see the Stars offer.")
+        return
+    from datetime import datetime, timezone
+    date = datetime.fromtimestamp(expiry[0], timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    await update.effective_message.reply_text(
+        f"👑 Subscription active through {date}. {remaining} of 300 AI replies remaining "
+        "in this 30-day period. Manage cancellation in Telegram's subscription settings.")
+
+async def paysupport_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_message.reply_text(
+        "For payment or refund support, contact the Queen's Alchemy creator through "
+        "https://lifeforcewell.com or reply to the official support contact listed there. "
+        "Include your payment date, but never share passwords or payment credentials.")
+
 async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text("Your Telegram numeric user ID: " + str(update.effective_user.id))
 
@@ -603,12 +680,14 @@ if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
     if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
     app = Application.builder().token(TOKEN).build()
-    for cmd, fn in [("id", id_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd)]:
+    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
     app.add_handler(CallbackQueryHandler(journal_button, pattern=r"^j:(save|edit|later|never|view)$"))
     app.add_handler(CallbackQueryHandler(testimonial_permission, pattern=r"^t:[anp]:[0-9]+$"))
+    app.add_handler(PreCheckoutQueryHandler(precheckout))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, payment_received))
     app.add_handler(MessageHandler(filters.VOICE, voice_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.run_polling(drop_pending_updates=True)
