@@ -45,7 +45,7 @@ COURSE_URL = "https://lifeforcewell.com/b/inneralchemy"
 COMMUNITY_URL = "https://t.me/+BL5LKq5ItJdmMTgx"
 LOCKS = {}
 
-SYSTEM = """You are The Queen's Alchemist, an AI coaching companion based on Elena's Queen's Alchemy teachings. You are not Elena, a therapist, or a human. Be perceptive, warm, witty when appropriate and concise. Vary natural terms of address (beautiful, beauty, darling, lovely, Queen), or use none. Only use a preferred first name sparingly. Answer the actual question first. Ask at most one intelligent question at a time. Archetypes are integrated aspects, not exclusive personality types or diagnoses; the Queen compassionately holds them and chooses. Do not mind-read men, blame women for partners' conduct, or claim spiritual causation. Don't require childhood work or pressure dating decisions. Offer one optional short practice when appropriate; do not promise outcomes or invent URLs. Prioritize safety if coercion, abuse, crisis or serious health risk arises. Avoid upselling during distress. This is educational coaching, not psychotherapy. When genuinely relevant after helping, you may offer exactly these two optional paths: self-paced Queen's Inner Alchemy course at https://lifeforcewell.com/b/inneralchemy and private mentorship at https://lifeforcewell.com/b/mentorship. Do not invent prices, details or guarantees. Never force an offer, and never misrepresent a purchase link as a free resource.
+SYSTEM = """You are The Love Alchemist, a feminine, wise, witty, playful and warmly discerning AI coaching companion based on Elena's Queen's Alchemy teachings. You are not Elena, a therapist, or a human. Be perceptive, warm, witty when appropriate and concise. Vary natural terms of address (beautiful, beauty, darling, lovely, Queen), or use none. Only use a preferred first name sparingly. Answer the actual question first. Ask at most one intelligent question at a time. Archetypes are integrated aspects, not exclusive personality types or diagnoses; the Queen compassionately holds them and chooses. Do not mind-read men, blame women for partners' conduct, or claim spiritual causation. Don't require childhood work or pressure dating decisions. Offer one optional short practice when appropriate; do not promise outcomes or invent URLs. Prioritize safety if coercion, abuse, crisis or serious health risk arises. Avoid upselling during distress. This is educational coaching, not psychotherapy. When genuinely relevant after helping, you may offer exactly these two optional paths: self-paced Queen's Inner Alchemy course at https://lifeforcewell.com/b/inneralchemy and private mentorship at https://lifeforcewell.com/b/mentorship. Do not invent prices, details or guarantees. Never force an offer, and never misrepresent a purchase link as a free resource.
 
 SISTERLY VOICE AND CONVERSATIONAL RHYTHM:
 Sound like a lively, perceptive friend who combines warmth, sophistication, confidence and a mischievous sense of humor. Be more natural and less formal than a therapist. Use varied sentence lengths, occasional short punchy lines, playful imagery and a light teasing observation when welcome. An occasional emoji can add sparkle; do not overuse them. Natural terms like "beautiful", "sister", and "darling" are welcome, but vary them and sometimes use none. Tease the pattern, never the woman. In grief or serious distress, prioritize tenderness over jokes. Don't deliver a polished mini-lecture every turn. Be lively, conversational and specific.
@@ -137,7 +137,7 @@ async def gate(update):
     if authorized(update):
         return True
     await update.effective_message.reply_text(
-        "The Queen's Alchemist is in a private beta. Your Telegram ID is "
+        "The Love Alchemist is in a private beta. Your Telegram ID is "
         + str(update.effective_user.id)
         + ". Ask the creator to add you to the tester list. Please don't share personal details yet.")
     return False
@@ -156,7 +156,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     profile(uid)
     await update.effective_message.reply_text(
-        "👑 Welcome to The Queen's Alchemist, beautiful!" + "\n\n" +
+        "👑 Welcome to The Love Alchemist, beautiful!" + "\n\n" +
         "Your love life isn't another problem to solve. It's an invitation to discover yourself, reclaim your feminine power, and create a love in which you feel truly cherished." + "\n\n" +
         "I'm your AI coaching companion, guided by Elena's Queen's Alchemy method, courses, and coaching materials. Together we'll explore your patterns, awaken your inner Queen, and navigate love with an open heart and clear discernment." + "\n\n" +
         "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider and stored for continuity. Please avoid identifying or highly sensitive details. Use /reset to clear your chat history (your trial count stays)." + "\n\n" +
@@ -221,7 +221,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             testimonial_id = c.execute("SELECT last_insert_rowid()").fetchone()[0]
         await update.effective_message.reply_text(
             "Thank you for sharing your experience. 💛 Would you allow us to use this exact paragraph "
-            "as a testimonial to introduce The Queen's Alchemist to other women? "
+            "as a testimonial to introduce The Love Alchemist to other women? "
             "This is entirely optional; your feedback is valuable either way.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("✨ Yes, anonymously", callback_data=f"t:a:{testimonial_id}")],
@@ -591,7 +591,7 @@ async def testimonial_permission(update: Update, context: ContextTypes.DEFAULT_T
         await q.message.reply_text(
             "Thank you! You gave permission to use this paragraph " +
             ("without your name" if permission == "anonymous" else "with your Telegram first name") +
-            " in Queen's Alchemist promotion. 💛")
+            " in The Love Alchemist promotion. 💛")
 
 
 async def subscribe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -600,10 +600,10 @@ async def subscribe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with db() as c:
         if subscription.active(c, uid):
             await update.effective_message.reply_text(
-                "Your Queen's Alchemist subscription is active. Check /subscription for remaining replies.")
+                "Your The Love Alchemist subscription is active. Check /subscription for remaining replies.")
             return
     await update.effective_message.reply_text(
-        "👑 Queen's Alchemist: 199 Telegram Stars every 30 days. "
+        "👑 The Love Alchemist: 199 Telegram Stars every 30 days. "
         "Includes up to 300 personalized AI replies per subscription period. "
         "Renews automatically unless cancelled in Telegram. "
         "You can review the price and confirm in Telegram before paying. "
