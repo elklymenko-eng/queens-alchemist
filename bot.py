@@ -166,6 +166,57 @@ def profile(uid):
         c.execute("INSERT OR IGNORE INTO profiles(user_id) VALUES (?)", (uid,))
         return c.execute("SELECT status,patterns,goal,preferred_name,stage,replies_used FROM profiles WHERE user_id=?", (uid,)).fetchone()
 
+def journal_home_markup():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✨ Save a New Insight", callback_data="journal:new")],
+        [InlineKeyboardButton("📖 Explore My Journal", callback_data="journal:view")],
+        [InlineKeyboardButton("💜 Return to My Alchemist", callback_data="journal:back")],
+    ])
+
+def journal_fields_markup():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data="journal:field:" + field)]
+        for field, label in alchemy_journal.FIELDS.items()
+    ] + [[InlineKeyboardButton("↩️ Back to Journal", callback_data="journal:home")]])
+
+async def journal_home(message):
+    await message.reply_text(
+        "👑 Your Alchemy Journal\\n\\nWelcome to your private sanctuary of insights, discoveries, and intentions. "
+        "Here, the wisdom you uncover becomes something you can return to. "
+        "Nothing is saved without your permission.\\n\\nWhat would you like to do?",
+        reply_markup=journal_home_markup())
+
+async def journal_navigation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    action = q.data
+    if action in ("journal:home", "journal:back"):
+        context.user_data.pop("journal_field", None)
+        if action == "journal:back":
+            await q.message.reply_text("💜 Back to your Alchemist. Tell me what is on your heart, or open /menu.", reply_markup=alchemy_menu())
+        else:
+            await journal_home(q.message)
+    elif action == "journal:new":
+        await q.message.reply_text("✨ What would you like to capture? Choose a chapter of your Journal:", reply_markup=journal_fields_markup())
+    elif action == "journal:view":
+        with db() as c:
+            entries = alchemy_journal.get_entries(c, q.from_user.id)
+        await q.message.reply_text(
+            alchemy_journal.render(entries)[:3600] if entries else "Your Journal is waiting for its first insight. 💜",
+            reply_markup=journal_home_markup())
+    elif action.startswith("journal:field:"):
+        field = action.split(":", 2)[2]
+        if field not in alchemy_journal.FIELDS: return
+        context.user_data["journal_field"] = field
+        await q.message.reply_text(
+            "✨ " + alchemy_journal.FIELDS[field] + "\\n\\nWrite your insight in your own words (up to 1,200 characters). "
+            "Your next message will be saved to this chapter. Send /cancel to change your mind.")
+
+async def cancel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop("journal_field", None)
+    await update.effective_message.reply_text("No Journal entry saved. 💜", reply_markup=alchemy_menu())
+
 def alchemy_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✨ Daily Love Alchemy", callback_data="menu:daily")],
@@ -254,7 +305,7 @@ async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "menu:journal":
         with db() as c:
             entries = alchemy_journal.get_entries(c, q.from_user.id)
-        await q.message.reply_text(alchemy_journal.render(entries)[:3900] if entries else "Your Alchemy Journal is empty. Use /remember to save an insight.")
+        await journal_home(q.message)
     elif action == "menu:reset":
         await q.message.reply_text("Start fresh? /reset deletes your stored chat messages but keeps your Journal and reply allowance. Then /start reopens onboarding. /clearjournal confirm separately erases your Journal.")
     elif action == "menu:replies":
@@ -350,6 +401,17 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
     if not await gate(update): return
     msg = (msg_override if msg_override is not None else (update.effective_message.text or "")).strip()
     if not msg: return
+    journal_field = context.user_data.pop("journal_field", None)
+    if journal_field:
+        uid = update.effective_user.id
+        if len(msg) > alchemy_journal.MAX_ENTRY:
+            context.user_data["journal_field"] = journal_field
+            await update.effective_message.reply_text("That insight is a little long. Please keep it under 1,200 characters, darling.")
+            return
+        with db() as c:
+            alchemy_journal.set_entry(c, uid, journal_field, msg)
+        await update.effective_message.reply_text("✨ Saved to " + alchemy_journal.FIELDS[journal_field] + ". Your insight is yours to revisit or revise anytime.", reply_markup=journal_home_markup())
+        return
     if context.user_data.pop("awaiting_feedback", False):
         with db() as c:
             c.execute("INSERT INTO feedback_notes(user_id,note) VALUES (?,?)", (update.effective_user.id, msg[:2000]))
@@ -861,8 +923,9 @@ if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
     if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
     app = Application.builder().token(TOKEN).post_init(daily_scheduler_start).post_shutdown(daily_scheduler_stop).build()
-    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("help", help_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd)]:
+    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("help", help_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
+    app.add_handler(CallbackQueryHandler(journal_navigation, pattern=r"^journal:"))
     app.add_handler(CallbackQueryHandler(daily_button, pattern=r"^daily:"))
     app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
