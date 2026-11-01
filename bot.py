@@ -1,10 +1,11 @@
 import os, json, sqlite3, logging, asyncio, tempfile
 from pathlib import Path
 import alchemy_journal
+import subscription
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, PreCheckoutQueryHandler, ContextTypes, filters
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -15,7 +16,7 @@ MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 ALLOWED = {int(x.strip()) for x in os.getenv("ALLOWED_USER_IDS", "").split(",") if x.strip()}
 OWNERS = {int(x.strip()) for x in os.getenv("OWNER_USER_IDS", "").split(",") if x.strip()}
 BETA_OPEN = os.getenv("BETA_OPEN", "false").lower() == "true"
-FREE_REPLIES = 20
+FREE_REPLIES = 10
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB = DATA_DIR / "beta.sqlite3"
@@ -119,6 +120,7 @@ def db():
         preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
         replies_used INTEGER NOT NULL DEFAULT 0)""")
     alchemy_journal.initialize(c)
+    subscription.initialize(c)
     c.commit()
     return c
 
@@ -153,7 +155,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Your love life isn't another problem to solve. It's an invitation to discover yourself, reclaim your feminine power, and create a love in which you feel truly cherished." + "\n\n" +
         "I'm your AI coaching companion, guided by Elena's Queen's Alchemy method, courses, and coaching materials. Together we'll explore your patterns, awaken your inner Queen, and navigate love with an open heart and clear discernment." + "\n\n" +
         "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider and stored for continuity. Please avoid identifying or highly sensitive details. Use /reset to clear your chat history (your trial count stays)." + "\n\n" +
-        "✨ Your first 20 personalized AI replies are my gift to you. This discovery journey doesn't use any of them." + "\n\n" +
+        "✨ Your first 10 personalized AI replies are my gift to you. This discovery journey doesn't use any of them." + "\n\n" +
         "Shall we begin, darling? Where are you in your love life right now?",
         reply_markup=buttons([s[0] for s in STATUS], "s:"))
 
@@ -248,10 +250,16 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         elif stage < 2:
             await update.effective_message.reply_text("Send /start to begin the discovery journey.")
             return
-        if uid not in OWNERS and used >= FREE_REPLIES:
+        with db() as c:
+            paid_active = subscription.active(c, uid)
+            paid_remaining = subscription.remaining(c, uid) if paid_active else 0
+        if uid not in OWNERS and used >= FREE_REPLIES and not paid_active:
             await update.effective_message.reply_text(
-                "👑 You've enjoyed your 20 free Alchemist replies. Thank you for exploring! "
+                "👑 Your 10 free Alchemist replies are complete. To continue chatting, use /subscribe for 199 Telegram Stars every 30 days (300 AI replies per period). "
                 "Use /feedback to share what helped. If you want to continue, explore the self-paced course: " + COURSE_URL + "\nOr private mentorship: " + MENTORSHIP_URL + ".\nJoin our free Queen\'s Inner Circle: " + COMMUNITY_URL)
+            return
+        if uid not in OWNERS and paid_active and paid_remaining <= 0:
+            await update.effective_message.reply_text("You have reached the 300-reply fair-use allowance for this 30-day subscription period. Your access refreshes with your next paid period. Use /subscription for status.")
             return
         with db() as c:
             history = c.execute("SELECT role,content FROM messages WHERE user_id=? ORDER BY ts DESC,rowid DESC LIMIT 12", (uid,)).fetchall()[::-1]
@@ -275,9 +283,9 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         already_sent_practice = any(
             p["url"] in text for (text,) in earlier_assistant for p in PRACTICES
         )
-        practice_due = not already_sent_practice and used >= 9
-        practice_window = not already_sent_practice and 4 <= used <= 8
-        remaining = FREE_REPLIES - used
+        practice_due = not already_sent_practice and used >= 7 and not paid_active
+        practice_window = not already_sent_practice and 3 <= used <= 6 and not paid_active
+        remaining = max(0, FREE_REPLIES - used) if not paid_active else paid_remaining
         with db() as c:
             journal_entries = alchemy_journal.get_entries(c, uid)
         journal_context = ("USER-APPROVED ALCHEMY JOURNAL (not a diagnosis; may be revised): " + alchemy_journal.render(journal_entries)[:2400]) if journal_entries else ""
@@ -352,25 +360,28 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         with db() as c:
             c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "user", msg))
             c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "assistant", answer))
-            c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
+            if paid_active:
+                subscription.record_reply(c, uid)
+            else:
+                c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
         await maybe_offer_journal(update, uid, msg, history, used)
-        if used == 9 and not immediate_crisis:
+        if used == 6 and not paid_active and not immediate_crisis:
             await update.effective_message.reply_text(
                 "👑 A little invitation, beautiful: you're welcome in The Queen's Inner Circle, "
                 "our free Telegram community for sisterhood, Queen's Alchemy transmissions, "
                 "and conversations about love, dating, and feminine embodiment. "
                 "Join whenever it feels right: " + COMMUNITY_URL,
                 disable_web_page_preview=True)
-        if uid not in OWNERS and remaining == 1:
+        if uid not in OWNERS and not paid_active and remaining == 1:
             await update.effective_message.reply_text(
-                "You've reached the end of your 20 free AI replies. "
+                "You've reached the end of your 10 free AI replies. Continue with /subscribe (199 Stars per 30 days, up to 300 replies). "
                 "Thank you for being part of our beta! I would love your honest feedback or a short testimonial. Tap /feedback to share a few sentences; you can choose whether they may be quoted in promotion.\n\n"
                 "Explore the self-paced course: " + COURSE_URL + "\n"
                 "Private mentorship: " + MENTORSHIP_URL + "\n"
                 "Join the free Queen\'s Inner Circle: " + COMMUNITY_URL)
-        elif uid not in OWNERS and remaining in (6, 3):
+        elif uid not in OWNERS and not paid_active and remaining in (4, 2):
             await update.effective_message.reply_text(
                 "👑 " + str(remaining-1) + " free AI replies left. Continue whenever you're ready.")
 
@@ -586,7 +597,7 @@ async def remaining_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     used = profile(update.effective_user.id)[5]
     await update.effective_message.reply_text(
         "You have " + ("unlimited owner testing access" if update.effective_user.id in OWNERS
-                        else str(max(0, FREE_REPLIES-used)) + " of 20 free AI replies remaining") + ".")
+                        else str(max(0, FREE_REPLIES-used)) + " of 10 free AI replies remaining") + ".")
 
 if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
