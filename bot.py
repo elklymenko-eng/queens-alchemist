@@ -1,4 +1,5 @@
 import os, json, sqlite3, logging, asyncio, tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 import alchemy_journal
 import subscription
@@ -130,6 +131,7 @@ def db():
         user_id INTEGER PRIMARY KEY, status TEXT, patterns TEXT, goal TEXT,
         preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
         replies_used INTEGER NOT NULL DEFAULT 0)""")
+    c.execute("CREATE TABLE IF NOT EXISTS daily_free_replies (user_id INTEGER PRIMARY KEY, utc_day TEXT NOT NULL)")
     alchemy_journal.initialize(c)
     subscription.initialize(c)
     c.execute("CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY)")
@@ -269,9 +271,13 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         with db() as c:
             paid_active = subscription.active(c, uid)
             paid_remaining = subscription.remaining(c, uid) if paid_active else 0
-        if uid not in OWNERS and used >= FREE_REPLIES and not paid_active:
+        daily_day = datetime.now(timezone.utc).date().isoformat()
+        with db() as c:
+            daily_used = bool(c.execute("SELECT 1 FROM daily_free_replies WHERE user_id=? AND utc_day=?", (uid, daily_day)).fetchone())
+        daily_free = uid not in OWNERS and used >= FREE_REPLIES and not paid_active and not daily_used
+        if uid not in OWNERS and used >= FREE_REPLIES and not paid_active and daily_used:
             await update.effective_message.reply_text(
-                "👑 Your 10 free Alchemist replies are complete. To continue chatting, use /subscribe for 199 Telegram Stars every 30 days (300 AI replies per period). "
+                "👑 You have used today\'s complimentary Alchemist reply. Come back tomorrow for another free reply (resets at 00:00 UTC), or use /subscribe for 199 Telegram Stars every 30 days (300 AI replies per period). "
                 "Use /feedback to share what helped. If you want to continue, explore the self-paced course: " + COURSE_URL + "\nOr private mentorship: " + MENTORSHIP_URL + ".\nJoin our free Queen\'s Inner Circle: " + COMMUNITY_URL)
             return
         if uid not in OWNERS and paid_active and paid_remaining <= 0:
@@ -299,8 +305,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         already_sent_practice = any(
             p["url"] in text for (text,) in earlier_assistant for p in PRACTICES
         )
-        practice_due = not already_sent_practice and used >= 7 and not paid_active
-        practice_window = not already_sent_practice and 3 <= used <= 6 and not paid_active
+        practice_due = not already_sent_practice and used >= 7 and not paid_active and not daily_free
+        practice_window = not already_sent_practice and 3 <= used <= 6 and not paid_active and not daily_free
         remaining = max(0, FREE_REPLIES - used) if not paid_active else paid_remaining
         with db() as c:
             journal_entries = alchemy_journal.get_entries(c, uid)
@@ -330,7 +336,13 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             log.exception("AI request failed")
             await update.effective_message.reply_text("I'm having trouble responding. Please try again shortly; this didn't use a free reply.")
             return
-        if practice_followup and not any(p["url"] in answer for p in PRACTICES):
+        short_offer = any(x in prior_assistant.lower() for x in ("3-minute", "4-minute", "3 minute", "4 minute", "three-minute", "four-minute", "short practice", "quick practice", "brief exercise", "short exercise"))
+        if practice_followup and short_offer:
+            # Do not append a long recording to a promised short in-chat exercise.
+            answer = answer.split("🎧 ")[0].rstrip() if "🎧 " in answer else answer
+            for p in PRACTICES:
+                answer = answer.replace(p["url"], "")
+        if practice_followup and not short_offer and not any(p["url"] in answer for p in PRACTICES):
             # A yes to a promised practice must never leave the woman without a link.
             context_words = prior_assistant.lower()
             chosen = next((p for p in PRACTICES
@@ -382,26 +394,28 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             c.execute("INSERT INTO messages(user_id,role,content) VALUES (?,?,?)", (uid, "assistant", answer))
             if paid_active:
                 subscription.record_reply(c, uid)
-            else:
+            elif daily_free:
+                c.execute("INSERT INTO daily_free_replies(user_id,utc_day) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET utc_day=excluded.utc_day", (uid, daily_day))
+            elif uid not in OWNERS:
                 c.execute("UPDATE profiles SET replies_used=replies_used+1 WHERE user_id=?", (uid,))
         for i in range(0, len(answer), 3800):
             await update.effective_message.reply_text(answer[i:i+3800], disable_web_page_preview=True)
         await maybe_offer_journal(update, uid, msg, history, used)
-        if used == 6 and not paid_active and not immediate_crisis:
+        if used == 6 and not paid_active and not daily_free and not immediate_crisis:
             await update.effective_message.reply_text(
                 "👑 A little invitation, beautiful: you're welcome in The Queen's Inner Circle, "
                 "our free Telegram community for sisterhood, Queen's Alchemy transmissions, "
                 "and conversations about love, dating, and feminine embodiment. "
                 "Join whenever it feels right: " + COMMUNITY_URL,
                 disable_web_page_preview=True)
-        if uid not in OWNERS and not paid_active and remaining == 1:
+        if uid not in OWNERS and not paid_active and not daily_free and remaining == 1:
             await update.effective_message.reply_text(
                 "You've reached the end of your 10 free AI replies. Continue with /subscribe (199 Stars per 30 days, up to 300 replies). "
                 "Thank you for being part of our beta! I would love your honest feedback or a short testimonial. Tap /feedback to share a few sentences; you can choose whether they may be quoted in promotion.\n\n"
                 "Explore the self-paced course: " + COURSE_URL + "\n"
                 "Private mentorship: " + MENTORSHIP_URL + "\n"
                 "Join the free Queen\'s Inner Circle: " + COMMUNITY_URL)
-        elif uid not in OWNERS and not paid_active and remaining in (4, 2):
+        elif uid not in OWNERS and not paid_active and not daily_free and remaining in (4, 2):
             await update.effective_message.reply_text(
                 "👑 " + str(remaining-1) + " free AI replies left. Continue whenever you're ready.")
 
@@ -696,9 +710,21 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def remaining_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     used = profile(update.effective_user.id)[5]
-    await update.effective_message.reply_text(
-        "You have " + ("unlimited owner testing access" if update.effective_user.id in OWNERS
-                        else str(max(0, FREE_REPLIES-used)) + " of 10 free AI replies remaining") + ".")
+    uid = update.effective_user.id
+    with db() as c:
+        active_paid = subscription.active(c, uid)
+        paid_left = subscription.remaining(c, uid) if active_paid else 0
+        today = datetime.now(timezone.utc).date().isoformat()
+        daily_used = bool(c.execute("SELECT 1 FROM daily_free_replies WHERE user_id=? AND utc_day=?", (uid, today)).fetchone())
+    if uid in OWNERS:
+        result = "You have unlimited owner testing access."
+    elif active_paid:
+        result = f"You have {paid_left} of 300 paid AI replies remaining this subscription period."
+    elif used < FREE_REPLIES:
+        result = f"You have {FREE_REPLIES-used} of 10 introductory AI replies remaining. After that, you can enjoy one complimentary reply per day."
+    else:
+        result = "Your complimentary daily reply is " + ("already used today. Return after 00:00 UTC tomorrow." if daily_used else "available now! ✨") + " Subscribe with /subscribe for up to 300 replies per 30 days."
+    await update.effective_message.reply_text(result)
 
 if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
