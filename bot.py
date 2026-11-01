@@ -121,6 +121,11 @@ def db():
         replies_used INTEGER NOT NULL DEFAULT 0)""")
     alchemy_journal.initialize(c)
     subscription.initialize(c)
+    c.execute("CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY)")
+    migration = "trial_reset_to_10_2026_11_01"
+    if not c.execute("SELECT 1 FROM schema_migrations WHERE name=?", (migration,)).fetchone():
+        c.execute("UPDATE profiles SET replies_used=0 WHERE replies_used>0")
+        c.execute("INSERT INTO schema_migrations(name) VALUES (?)", (migration,))
     c.commit()
     return c
 
@@ -603,16 +608,20 @@ async def subscribe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Renews automatically unless cancelled in Telegram. "
         "You can review the price and confirm in Telegram before paying. "
         "For billing questions or refunds, use /paysupport.")
-    await context.bot.send_invoice(
-        chat_id=update.effective_chat.id,
-        title="Queen's Alchemist — 30 days",
-        description="AI relationship coaching companion; up to 300 AI replies per 30-day period.",
+    invoice_url = await context.bot.create_invoice_link(
+        title="The Love Alchemist — 30 days",
+        description="AI relationship mentor; up to 300 replies per 30-day period.",
         payload=subscription.PAYLOAD,
         provider_token="",
         currency="XTR",
         prices=[LabeledPrice("30-day subscription", subscription.PRICE_STARS)],
         subscription_period=subscription.PERIOD_SECONDS,
     )
+    await update.effective_message.reply_text(
+        "Open your secure Telegram Stars subscription checkout:",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("✨ Subscribe — 199 Stars / 30 days", url=invoice_url)
+        ]]))
 
 async def precheckout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.pre_checkout_query
@@ -663,7 +672,7 @@ async def subscription_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def paysupport_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
         "For payment or refund support, contact the Queen's Alchemy creator through "
-        "https://lifeforcewell.com or reply to the official support contact listed there. "
+        "thelovealchemistsupport@gmail.com. "
         "Include your payment date, but never share passwords or payment credentials.")
 
 async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
