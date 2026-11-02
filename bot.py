@@ -170,6 +170,7 @@ def journal_home_markup():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✨ Save a New Insight", callback_data="journal:new")],
         [InlineKeyboardButton("📖 Explore My Journal", callback_data="journal:view")],
+        [InlineKeyboardButton("❔ How does my Journal work?", callback_data="journal:how")],
         [InlineKeyboardButton("💜 Return to My Alchemist", callback_data="journal:back")],
     ])
 
@@ -179,11 +180,20 @@ def journal_fields_markup():
         for field, label in alchemy_journal.FIELDS.items()
     ] + [[InlineKeyboardButton("↩️ Back to Journal", callback_data="journal:home")]])
 
+async def introduce_menu(message):
+    await message.reply_text(
+        "👑 One more little treasure, darling: your Alchemy Menu. "
+        "Your private Journal, free Daily Love Alchemy, reply allowance, and membership are one tap away. "
+        "Find it anytime through Telegram's command menu or /menu.",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("👑 My Alchemy Menu", callback_data="menu:open")]]))
+
 async def journal_home(message):
     await message.reply_text(
         "👑 Your Alchemy Journal\\n\\nWelcome to your private sanctuary of insights, discoveries, and intentions. "
         "Here, the wisdom you uncover becomes something you can return to. "
-        "Nothing is saved without your permission.\\n\\nWhat would you like to do?",
+        "Nothing is saved without your permission.\\n\\nTap Save a New Insight, choose a chapter, and write your thought. "
+        "Or explore what you have saved. For details, tap How does my Journal work?\\n\\nWhat would you like to do?",
         reply_markup=journal_home_markup())
 
 async def journal_navigation(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -199,6 +209,15 @@ async def journal_navigation(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await journal_home(q.message)
     elif action == "journal:new":
         await q.message.reply_text("✨ What would you like to capture? Choose a chapter of your Journal:", reply_markup=journal_fields_markup())
+    elif action == "journal:how":
+        await q.message.reply_text(
+            "💜 Your Journal holds insights you choose to keep.\n\n"
+            "During coaching, I may suggest saving a meaningful discovery. You approve or decline.\n\n"
+            "Or tap Save a New Insight, choose a chapter, and write naturally. "
+            "Your next message is saved without using an AI reply. "
+            "Each chapter holds the latest entry, replacing an older one.\n\n"
+            "Explore My Journal to revisit saved insights. Nothing is added without your permission.",
+            reply_markup=journal_home_markup())
     elif action == "journal:view":
         with db() as c:
             entries = alchemy_journal.get_entries(c, q.from_user.id)
@@ -372,6 +391,7 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ["✨ Explore my feminine archetypes", "💬 Tell you what's happening in my love life"], "a:"))
         elif kind == "a" and idx == 0:
             conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("archetypes", uid))
+            await introduce_menu(q.message)
             await q.message.reply_text(
                 "✨ Welcome to the inner world of Queen's Alchemy, beautiful.\n\n"
                 "Archetypes are symbolic parts of our psyche—different energies and ways of being that live within us. "
@@ -393,6 +413,7 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         elif kind == "a" and idx == 1:
             conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("conversation", uid))
+            await introduce_menu(q.message)
             await q.message.reply_text(
                 "I'm here, beautiful. 💛 What's happening in your love life right now? "
                 "Take your time and tell me as much or as little as you wish.")
@@ -731,7 +752,7 @@ async def journey_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     with db() as c:
         entries = alchemy_journal.get_entries(c, update.effective_user.id)
-    await update.effective_message.reply_text(alchemy_journal.render(entries)[:3900])
+    await journal_home(update.effective_message)
 
 async def remember_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
