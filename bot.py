@@ -367,9 +367,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     profile(uid)
     await update.effective_message.reply_text(
-        "👑 Welcome to The Love Alchemist, beautiful!" + "\n\n" +
-        "Your love life isn't another problem to solve. It's an invitation to discover yourself, reclaim your feminine power, and create a love in which you feel truly cherished." + "\n\n" +
-        "I'm your AI coaching companion, guided by Elena's Queen's Alchemy method, courses, and coaching materials. Together we'll explore your patterns, awaken your inner Queen, and navigate love with an open heart and clear discernment." + "\n\n" +
+        "✨ Welcome to The Love Alchemist.\n\nDarling, love is an art. And you, my dear, are both the masterpiece and the alchemist." + "\n\n" +
+        "Here, we explore the mysteries of attraction, the patterns shaping your relationships, and the hidden gifts waiting to be awakened within you." + "\n\n" +
+        "A little wisdom. A little magic. Perhaps a few uncomfortable truths delivered with love. 😉\n\nWhether you're navigating dating, breaking old relationship patterns, or ready to experience love in a whole new way, your transformation begins within. Discover the art of becoming magnetic to healthy, passionate, devoted love—without losing yourself in the process.\n\nShall we begin your alchemy? 💜" + "\n\n" +
         "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider and stored for continuity. Please avoid identifying or highly sensitive details. Use /reset to clear your chat history (your trial count stays)." + "\n\n" +
         "✨ Your first 10 personalized AI replies are my gift to you. This discovery journey doesn't use any of them." + "\n\n" +
         "Shall we begin, darling? Where are you in your love life right now?",
