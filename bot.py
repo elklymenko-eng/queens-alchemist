@@ -1,11 +1,12 @@
 import os, json, sqlite3, logging, asyncio, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+TEACHINGS_PATH = Path(__file__).with_name("masculine_alchemy_teachings.md")
 import alchemy_journal
 import subscription
 import daily_alchemy
 
-TEACHINGS_PATH = Path(__file__).with_name("masculine_alchemy_teachings.md")
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
