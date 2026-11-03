@@ -52,7 +52,7 @@ LOCKS = {}
 
 SYSTEM = """You are The Love Alchemist, a feminine, wise, witty, playful and warmly discerning AI coaching companion based on Elena's Queen's Alchemy teachings. You are not Elena, a therapist, or a human. Be perceptive, warm, witty when appropriate and concise. Vary natural terms of address (beautiful, beauty, darling, lovely, Queen), or use none. Only use a preferred first name sparingly. Answer the actual question first. Ask at most one intelligent question at a time. Archetypes are integrated aspects, not exclusive personality types or diagnoses; the Queen compassionately holds them and chooses. Do not mind-read men, blame women for partners' conduct, or claim spiritual causation. Don't require childhood work or pressure dating decisions. Offer one optional short practice when appropriate; do not promise outcomes or invent URLs. Prioritize safety if coercion, abuse, crisis or serious health risk arises. Avoid upselling during distress. This is educational coaching, not psychotherapy. When genuinely relevant after helping, you may offer exactly these two optional paths: self-paced Queen's Inner Alchemy course at https://lifeforcewell.com/b/inneralchemy and private mentorship at https://lifeforcewell.com/b/mentorship. Do not invent prices, details or guarantees. Never force an offer, and never misrepresent a purchase link as a free resource.
 
-INCLUSIVE ARCHETYPAL COACHING: Primary teachings speak to women, but all genders are welcome. Do not assume gender from a partner's gender. Adapt language respectfully when a user identifies their perspective. Do not impose royal labels. Draw on the additional masculine and Priestess teachings supplied after these instructions when relevant.
+ONBOARDING ARCHETYPE DISCOVERY: If the user's saved goal is feminine_archetypes or masculine_archetypes, continue a conversational five-question archetype reflection, ONE question per reply. The first question was already asked in onboarding; do not restart it. Track progress from the current conversation and ask the next question naturally. Cover: response to uncertainty; what they most seek in love; behavior under stress; strength they bring to partnership; growth edge. After the fifth answer, offer a tentative, personalized synthesis of two prominent archetypal gifts, one protective shadow, and one practical integration exercise. For masculine, draw from King (grounded leadership and responsibility), Warrior (boundaries and action), Magician (insight and transformation), Lover (feeling and connection), Jester (humor and flexibility), and Sage (wisdom). For feminine, draw from Queen, Princess, Priestess, Lover, Mother, Warrior, Wild Woman, and Jester. Everyone has access to all archetypes; never infer gender, diagnose, or claim scientific test validity. If they ask another question, answer it rather than forcing quiz completion. Do not burn replies on repetitive questions or claim an automated score. The goal is self-insight, not typing.\n\nINCLUSIVE ARCHETYPAL COACHING: Primary teachings speak to women, but all genders are welcome. Do not assume gender from a partner's gender. Adapt language respectfully when a user identifies their perspective. Do not impose royal labels. Draw on the additional masculine and Priestess teachings supplied after these instructions when relevant.
 
 SISTERLY VOICE AND CONVERSATIONAL RHYTHM:
 Sound like a lively, perceptive friend who combines warmth, sophistication, confidence and a mischievous sense of humor. Be more natural and less formal than a therapist. Use varied sentence lengths, occasional short punchy lines, playful imagery and a light teasing observation when welcome. An occasional emoji can add sparkle; do not overuse them. Natural terms like "beautiful", "sister", and "darling" are welcome, but vary them and sometimes use none. Tease the pattern, never the woman. In grief or serious distress, prioritize tenderness over jokes. Don't deliver a polished mini-lecture every turn. Be lively, conversational and specific.
@@ -389,39 +389,43 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if kind == "s" and idx < len(STATUS):
             conn.execute("UPDATE profiles SET status=?,patterns=NULL,goal=NULL,stage=2 WHERE user_id=?", (STATUS[idx][0], uid))
             await q.message.reply_text(
-                "Thank you, beautiful. We can begin wherever your heart is today. ✨\n\n"
-                "Would you like to discover the feminine archetypes shaping your love life, "
-                "or simply tell me what's happening? There is no wrong place to begin.",
-                reply_markup=buttons(
-                    ["✨ Explore my feminine archetypes", "💬 Tell you what's happening in my love life"], "a:"))
-        elif kind == "a" and idx == 0:
-            conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("archetypes", uid))
+                "Lovely to meet you. 💜 Where shall we begin your love alchemy?\n\n"
+                "Explore a hidden pattern, discover the archetypes influencing your love life, "
+                "or bring me any dating or relationship question.",
+                reply_markup=buttons([
+                    "🔍 Decode my love patterns",
+                    "👑 Explore feminine archetypes",
+                    "⚔️ Explore masculine archetypes",
+                    "💬 Ask my own question"
+                ], "a:"))
+        elif kind == "a" and idx in (0, 1, 2, 3):
+            goals = ("patterns", "feminine_archetypes", "masculine_archetypes", "conversation")
+            conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", (goals[idx], uid))
             await introduce_menu(q.message)
-            await q.message.reply_text(
-                "✨ Welcome to the inner world of Queen's Alchemy, beautiful.\n\n"
-                "Archetypes are symbolic parts of our psyche—different energies and ways of being that live within us. "
-                "Each carries gifts and shadows. The Princess brings playfulness and the joy of receiving; "
-                "the Priestess, intuition; the Mother, nourishment; the Warrior, assertiveness; "
-                "the Wild Woman, freedom; and the Lover, sensuality.\n\n"
-                "Their shadows are the patterns we may not yet recognize in ourselves. "
-                "We might project them onto others or find ourselves repeating reactions that no longer serve us. "
-                "But the shadow is not an enemy—it can hold tremendous power waiting to be understood and integrated.\n\n"
-                "For example, a Princess who knows her worth can delight in being cherished. "
-                "A wounded Princess may compare herself with other women, feel unworthy, "
-                "or try to earn love by becoming someone she thinks a man will choose. "
-                "Noticing that pattern isn't a reason for shame. It's where alchemy begins.\n\n"
-                "Inspired in part by Jungian psychology, Queen's Alchemy explores how unconscious patterns "
-                "shape our experience and choices. As we bring them into awareness, we gain more freedom "
-                "to love, receive, discern, and choose. Your Queen is the loving presence that can hold every part of you. 👑\n\n"
-                "Would you enjoy a little archetype discovery together, or is there a particular pattern "
-                "in your love life you'd like to explore first?"
-            )
-        elif kind == "a" and idx == 1:
-            conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", ("conversation", uid))
-            await introduce_menu(q.message)
-            await q.message.reply_text(
-                "I'm here, beautiful. 💛 What's happening in your love life right now? "
-                "Take your time and tell me as much or as little as you wish.")
+            if idx == 0:
+                await q.message.reply_text(
+                    "Let's decode the love story that keeps repeating. 🔍💜\n\n"
+                    "What is one pattern you notice in dating or relationships—even if you don't yet understand why it happens?")
+            elif idx == 1:
+                await q.message.reply_text(
+                    "Welcome to your inner cast of characters. 👑\n\n"
+                    "Feminine archetypes—Queen, Lover, Priestess, Princess, Mother, Warrior and more—"
+                    "are symbolic parts of ourselves, each with gifts and shadows. They're not fixed personality types.\n\n"
+                    "Let's explore yours with five playful questions, one at a time. "
+                    "When you really like someone, what do you tend to do first: open your heart, "
+                    "try to impress them, care for them, observe carefully, or keep your independence?")
+            elif idx == 2:
+                await q.message.reply_text(
+                    "Ready to meet your inner King, Warrior, Magician, Lover and Jester? ⚔️✨\n\n"
+                    "These masculine archetypes are energies anyone can explore—not labels or a test of manhood. "
+                    "We'll do a five-question reflection, one question at a time, then uncover your likely gifts, "
+                    "protective shadows, and one growth practice.\n\n"
+                    "Question 1: When a relationship feels uncertain, what's your first instinct—"
+                    "take charge, solve the problem, withdraw to think, seek closeness, or use humor?")
+            else:
+                await q.message.reply_text(
+                    "I'm listening. 💜 What's your dating or relationship question? "
+                    "You can start anywhere.")
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=None):
     if not await gate(update): return
@@ -460,6 +464,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
     lock = LOCKS.setdefault(uid, asyncio.Lock())
     async with lock:
         status, pattern, goal, name, stage, used = profile(uid)
+        if goal in ("feminine_archetypes", "masculine_archetypes"):
+            context.user_data["archetype_mode"] = goal
         if stage == 3:
             if msg.lower() not in ("skip", "no", "prefer not"):
                 name = msg[:60]
@@ -536,6 +542,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             + (" If a recorded practice genuinely supports the current discussion, include ONE matching URL; otherwise continue the conversation without a forced link." if practice_due else "")
             + (" IMPORTANT: User accepted a practice. If you offered a SHORT or 3–4 minute exercise, give a complete short IN-CHAT guided exercise, NOT a recording link. Only give the exact PRACTICES URL if you explicitly offered a recorded practice." if practice_followup else "")
         )
+        if goal in ("feminine_archetypes", "masculine_archetypes"):
+            context_note += "\\nARCHETYPE DISCOVERY MODE: User selected " + goal + ". Follow the five-question conversational discovery instructions; first question was already asked in onboarding.\\n"
         await update.effective_chat.send_action("typing")
         try:
             response = await AI.responses.create(
