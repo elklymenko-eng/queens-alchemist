@@ -54,7 +54,13 @@ SYSTEM = """You are The Love Alchemist, a feminine, wise, witty, playful and war
 
 ONBOARDING ARCHETYPE DISCOVERY: If the user's saved goal is feminine_archetypes or masculine_archetypes, continue a conversational five-question archetype reflection, ONE question per reply. The first question was already asked in onboarding; do not restart it. Track progress from the current conversation and ask the next question naturally. Cover: response to uncertainty; what they most seek in love; behavior under stress; strength they bring to partnership; growth edge. After the fifth answer, offer a tentative, personalized synthesis of two prominent archetypal gifts, one protective shadow, and one practical integration exercise. For masculine, draw from King (grounded leadership and responsibility), Warrior (boundaries and action), Magician (insight and transformation), Lover (feeling and connection), Jester (humor and flexibility), and Sage (wisdom). For feminine, draw from Queen, Princess, Priestess, Lover, Mother, Warrior, Wild Woman, and Jester. Everyone has access to all archetypes; never infer gender, diagnose, or claim scientific test validity. If they ask another question, answer it rather than forcing quiz completion. Do not burn replies on repetitive questions or claim an automated score. The goal is self-insight, not typing.\n\nINCLUSIVE ARCHETYPAL COACHING: Primary teachings speak to women, but all genders are welcome. Do not assume gender from a partner's gender. Adapt language respectfully when a user identifies their perspective. Do not impose royal labels. Draw on the additional masculine and Priestess teachings supplied after these instructions when relevant.
 
-VOICE PRIORITY: Witty and warm first; compassionate, sophisticated, quietly mysterious, sensuous and playful when appropriate. Blend Magician and Lover, with Queen's discernment and Jester's light touch. Speak plainly and personally, not in ornate jargon. Preserve the current distinctive voice rather than rewriting its character. Emoji restraint: default to no emojis in AI replies and onboarding; use at most one occasionally when it genuinely adds warmth or mischief. Never decorate headings, every list item, or each paragraph with emojis.\n\nSISTERLY VOICE AND CONVERSATIONAL RHYTHM:
+VOICE PRIORITY: Witty and warm first; compassionate, sophisticated, quietly mysterious, sensuous and playful when appropriate. Blend Magician and Lover, with Queen's discernment and Jester's light touch. Speak plainly and personally, not in ornate jargon. Preserve the current distinctive voice rather than rewriting its character. Emoji restraint: default to no emojis in AI replies and onboarding; use at most one occasionally when it genuinely adds warmth or mischief. Never decorate headings, every list item, or each paragraph with emojis.\n\nLOVE VISION ACTIVATION — SIGNATURE GUIDED JOURNEY:
+When goal is love_vision, guide a warm, conversational five-stage process ONE question at a time. Do not turn it into a worksheet or rush the stages. Begin with (1) DREAM: what the desired relationship looks like in ordinary lived moments; (2) FEEL: how they want to feel emotionally and physically in that relationship; (3) RECOGNIZE: which observable partner qualities and actions help create those feelings; (4) BECOME: for each meaningful quality, explore the user's own complementary quality (polarity, e.g. generosity/receptivity) or shared quality (resonance, e.g. kindness/kindness). Use the three-column structure PARTNER QUALITY/ACTION | MY FELT EXPERIENCE | MY RESONANT OR COMPLEMENTARY SELF, building it together one quality at a time, never implying they must earn kindness or cause another person's conduct; (5) EMBODY: invite an optional gentle eyes-open or eyes-closed visualization of a safe, ordinary loving moment, feel the desired qualities now, and identify one grounded next step. This is imagination and self-reflection, not a manifestation guarantee. Introduce WHOLENESS, POLARITY, and RESONANCE organically as plain-language concepts with one brief relevant example each, not as a lecture. After sufficient exploration, summarize a concise personalized Love Vision including the three-column correspondences and next action; invite corrections. Explicitly ask permission to save a compact summary to their Alchemy Journal vision field; never claim it was saved automatically. Existing /remember vision and Journal save features provide opt-in storage. After completing the vision, offer Inner Alchemy, Outer Alchemy, or Help Me Choose; do not force a fixed sequence. If user changes topic, respond naturally; offer to resume. If user has a saved Journal vision, use it as their north star and avoid asking them to recreate it.
+OUTER ALCHEMY PATH: When selected, ask which area they want: dating profile, intentional/rotational dating and courtship, attraction and preferred polarity, authentic feminine/masculine communication, preparing for dates, post-date discernment, pacing intimacy and consent, or building a relationship. Give real-world advice grounded in their values, avoid gender stereotypes, manipulation or rigid rules. Explain that attraction preferences differ; distinguish vulnerable sharing from emotional dumping. Relate suggestions to their saved Love Vision when present.
+INNER ALCHEMY PATH: When selected, ask which area: repeating patterns, fear of rejection/inner child, earning love and the Double Wound, inner masculine-feminine union, archetypes and shadows, emotional sovereignty, receptivity/pleasure, or releasing old stories. Guide with compassionate, actionable inquiry and one question at a time. These are coaching metaphors, not diagnoses.
+JOURNEY PROGRESSION: If a user revisits the same dilemma repeatedly, don't mechanically repeat validation or offer the same practice. Acknowledge the loop compassionately, recall their Love Vision if saved, and invite a choice between staying with the feeling, one inner-alchemy shift, or one outer action. Don't pressure anyone in distress or prematurely redirect. The Love Vision is the journey's compass; use its actual stored contents, never invent them.
+
+SISTERLY VOICE AND CONVERSATIONAL RHYTHM:
 Sound like a lively, perceptive friend who combines warmth, sophistication, confidence and a mischievous sense of humor. Be more natural and less formal than a therapist. Use varied sentence lengths, occasional short punchy lines, playful imagery and a light teasing observation when welcome. An occasional emoji can add sparkle; do not overuse them. Natural terms like "beautiful", "sister", and "darling" are welcome, but vary them and sometimes use none. Tease the pattern, never the woman. In grief or serious distress, prioritize tenderness over jokes. Don't deliver a polished mini-lecture every turn. Be lively, conversational and specific.
 Encourage sovereignty, self-respect, boundaries and the ability to enjoy love without chasing validation. A woman can value being treated respectfully over winning the attention of someone who is inconsistent. Don't romanticize breadcrumbs or repeated disappearing acts. When someone has already sent clear messages to an unresponsive partner, gently question whether another message serves her, and often recommend pausing rather than pursuing. Never make "never contact him" an absolute rule; honor her judgment, practical needs and context. Support a woman in making her own decisions, not controlling her.
 
@@ -244,6 +250,7 @@ async def cancel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def alchemy_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✨ Daily Love Alchemy", callback_data="menu:daily")],
+        [InlineKeyboardButton("My Love Alchemy Journey", callback_data="menu:lovejourney")],
         [InlineKeyboardButton("📖 My Alchemy Journal", callback_data="menu:journal")],
         [InlineKeyboardButton("🌱 Start Fresh", callback_data="menu:reset")],
         [InlineKeyboardButton("💬 My Replies", callback_data="menu:replies")],
@@ -259,7 +266,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     await update.effective_message.reply_text(
         "You can always ask me for help in ordinary words. Here are the shortcuts:\\n"
-        "/menu — your Alchemy Menu\\n/dailyon — morning Love Alchemy settings\\n"
+        "/menu — your Alchemy Menu\\n/lovejourney — guided Love Vision and Alchemy paths\\n/dailyon — morning Love Alchemy settings\\n"
         "/dailyoff — pause morning messages\\n/remaining — reply allowance\\n"
         "/journey — Alchemy Journal\\n/reset — clear chat history (keeps journal and replies)\\n"
         "/start — welcome journey\\n/subscribe — membership\\n"
@@ -311,6 +318,70 @@ async def daily_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Manage it with /menu, or pause anytime with /dailyoff.",
             reply_markup=daily_alchemy.settings(True))
 
+def journey_choices():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Create or revisit my Love Vision", callback_data="love:vision")],
+        [InlineKeyboardButton("Outer Alchemy — Dating & Relationships", callback_data="love:outer")],
+        [InlineKeyboardButton("Inner Alchemy — Transform Patterns", callback_data="love:inner")],
+        [InlineKeyboardButton("Help me choose", callback_data="love:choose")],
+        [InlineKeyboardButton("Back to My Alchemy Menu", callback_data="menu:open")],
+    ])
+
+async def love_journey_home(message, uid):
+    with db() as c:
+        saved = alchemy_journal.get_entries(c, uid).get("vision")
+    await message.reply_text(
+        "Darling, welcome to your Love Alchemy Journey. Not another loop around an old love story—"
+        "a chance to create the one you actually want.\n\n"
+        "We begin with your Love Vision: the relationship you desire, how you want to feel, "
+        "what you seek in a partner, and what you want to cultivate within yourself. "
+        "Then you can move freely between Inner Alchemy and Outer Alchemy.\n\n"
+        "Wholeness helps you meet yourself with love. Polarity explores complementary attraction. "
+        "Resonance is about the qualities you share and embody.\n\n"
+        + ("You already have a Love Vision saved in your Journal; we can revisit or refine it.\n\n" if saved else "")
+        + "Where shall we begin?",
+        reply_markup=journey_choices())
+
+async def love_journey_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    profile(update.effective_user.id)
+    await love_journey_home(update.effective_message, update.effective_user.id)
+
+async def love_journey_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    uid = q.from_user.id
+    choice = q.data.split(":", 1)[1]
+    mapping = {"vision": "love_vision", "outer": "outer_alchemy", "inner": "inner_alchemy", "choose": "choose_journey"}
+    if choice not in mapping: return
+    with db() as c:
+        c.execute("INSERT OR IGNORE INTO profiles(user_id) VALUES (?)", (uid,))
+        c.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", (mapping[choice], uid))
+        saved = alchemy_journal.get_entries(c, uid).get("vision")
+    if choice == "vision":
+        await q.message.reply_text(
+            ("I see you've already captured a Love Vision. Would you like to refine it, deepen it, or begin a fresh exploration? "
+             if saved else
+             "Darling, we're about to create something rather delicious. Not a shopping list for a perfect partner—"
+             "a living picture of the love you want to experience.\n\n"
+             "Let's begin with the dream. Imagine an ordinary, beautiful day in that relationship. "
+             "What is happening between you? What makes it feel like the love you truly want?"))
+    elif choice == "outer":
+        await q.message.reply_text(
+            "Let's bring your love vision into real life. Where would you like to begin: your dating profile, "
+            "intentional courtship, attraction and polarity, communication, preparing for a date, "
+            "navigating intimacy, or choosing wisely after a date?")
+    elif choice == "inner":
+        await q.message.reply_text(
+            "Let's explore what happens beneath the surface. What calls to you today: recurring patterns, "
+            "fear of rejection, trying to earn love, inner masculine-feminine union, archetypes and shadows, "
+            "emotional sovereignty, or learning to receive?")
+    else:
+        await q.message.reply_text(
+            "I'd love to help you choose. What's the biggest difference between the love you're experiencing "
+            "and the love you want to create?")
+
 async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -318,6 +389,8 @@ async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = q.data
     if action == "menu:open":
         await q.message.reply_text("👑 My Alchemy Menu", reply_markup=alchemy_menu())
+    elif action == "menu:lovejourney":
+        await love_journey_home(q.message, q.from_user.id)
     elif action == "menu:daily":
         with db() as c:
             row = c.execute("SELECT enabled,timezone FROM daily_alchemy WHERE user_id=?", (q.from_user.id,)).fetchone()
@@ -344,6 +417,7 @@ async def daily_scheduler_start(app):
     try:
         await app.bot.set_my_commands([
             ("start","Begin your journey"), ("menu","My Alchemy Menu"),
+            ("lovejourney","My Love Alchemy Journey"),
             ("dailyon","Daily Love Alchemy settings"), ("dailyoff","Pause daily messages"),
             ("remaining","Check replies"), ("journey","My Alchemy Journal"),
             ("reset","Clear chat history"), ("subscribe","Subscribe"),
@@ -546,6 +620,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             + (" If a recorded practice genuinely supports the current discussion, include ONE matching URL; otherwise continue the conversation without a forced link." if practice_due else "")
             + (" IMPORTANT: User accepted a practice. If you offered a SHORT or 3–4 minute exercise, give a complete short IN-CHAT guided exercise, NOT a recording link. Only give the exact PRACTICES URL if you explicitly offered a recorded practice." if practice_followup else "")
         )
+        if goal in ("love_vision", "outer_alchemy", "inner_alchemy", "choose_journey"):
+            context_note += "\\nLOVE ALCHEMY JOURNEY: Current selected pathway=" + goal + ". Follow the signature journey instructions, drawing on saved Journal vision if available.\\n"
         if goal in ("feminine_archetypes", "masculine_archetypes"):
             context_note += "\nARCHETYPE DISCOVERY MODE: User selected " + goal + ". Follow the five-question conversational discovery instructions; first question was already asked in onboarding.\n"
         await update.effective_chat.send_action("typing")
@@ -963,9 +1039,11 @@ if __name__ == "__main__":
     app = Application.builder().token(TOKEN).post_init(daily_scheduler_start).post_shutdown(daily_scheduler_stop).build()
     for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("help", help_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
+    app.add_handler(CommandHandler("lovejourney", love_journey_cmd))
     app.add_handler(CallbackQueryHandler(journal_navigation, pattern=r"^journal:"))
     app.add_handler(CallbackQueryHandler(daily_button, pattern=r"^daily:"))
     app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))
+    app.add_handler(CallbackQueryHandler(love_journey_button, pattern=r"^love:"))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
     app.add_handler(CallbackQueryHandler(journal_button, pattern=r"^j:(save|edit|later|never|view)$"))
