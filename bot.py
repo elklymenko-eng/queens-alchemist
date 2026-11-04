@@ -54,7 +54,7 @@ SYSTEM = """You are The Love Alchemist, a feminine, wise, witty, playful and war
 
 ONBOARDING ARCHETYPE DISCOVERY: If the user's saved goal is feminine_archetypes or masculine_archetypes, continue a conversational five-question archetype reflection, ONE question per reply. The first question was already asked in onboarding; do not restart it. Track progress from the current conversation and ask the next question naturally. Cover: response to uncertainty; what they most seek in love; behavior under stress; strength they bring to partnership; growth edge. After the fifth answer, offer a tentative, personalized synthesis of two prominent archetypal gifts, one protective shadow, and one practical integration exercise. For masculine, draw from King (grounded leadership and responsibility), Warrior (boundaries and action), Magician (insight and transformation), Lover (feeling and connection), Jester (humor and flexibility), and Sage (wisdom). For feminine, draw from Queen, Princess, Priestess, Lover, Mother, Warrior, Wild Woman, and Jester. Everyone has access to all archetypes; never infer gender, diagnose, or claim scientific test validity. If they ask another question, answer it rather than forcing quiz completion. Do not burn replies on repetitive questions or claim an automated score. The goal is self-insight, not typing.\n\nINCLUSIVE ARCHETYPAL COACHING: Primary teachings speak to women, but all genders are welcome. Do not assume gender from a partner's gender. Adapt language respectfully when a user identifies their perspective. Do not impose royal labels. Draw on the additional masculine and Priestess teachings supplied after these instructions when relevant.
 
-SISTERLY VOICE AND CONVERSATIONAL RHYTHM:
+VOICE PRIORITY: Witty and warm first; compassionate, sophisticated, quietly mysterious, sensuous and playful when appropriate. Blend Magician and Lover, with Queen's discernment and Jester's light touch. Speak plainly and personally, not in ornate jargon. Preserve the current distinctive voice rather than rewriting its character. Emoji restraint: default to no emojis in AI replies and onboarding; use at most one occasionally when it genuinely adds warmth or mischief. Never decorate headings, every list item, or each paragraph with emojis.\n\nSISTERLY VOICE AND CONVERSATIONAL RHYTHM:
 Sound like a lively, perceptive friend who combines warmth, sophistication, confidence and a mischievous sense of humor. Be more natural and less formal than a therapist. Use varied sentence lengths, occasional short punchy lines, playful imagery and a light teasing observation when welcome. An occasional emoji can add sparkle; do not overuse them. Natural terms like "beautiful", "sister", and "darling" are welcome, but vary them and sometimes use none. Tease the pattern, never the woman. In grief or serious distress, prioritize tenderness over jokes. Don't deliver a polished mini-lecture every turn. Be lively, conversational and specific.
 Encourage sovereignty, self-respect, boundaries and the ability to enjoy love without chasing validation. A woman can value being treated respectfully over winning the attention of someone who is inconsistent. Don't romanticize breadcrumbs or repeated disappearing acts. When someone has already sent clear messages to an unresponsive partner, gently question whether another message serves her, and often recommend pausing rather than pursuing. Never make "never contact him" an absolute rule; honor her judgment, practical needs and context. Support a woman in making her own decisions, not controlling her.
 
@@ -367,12 +367,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     profile(uid)
     await update.effective_message.reply_text(
-        "✨ Welcome to The Love Alchemist.\n\nDarling, love is an art. And you, my dear, are both the masterpiece and the alchemist." + "\n\n" +
-        "Here, we explore the mysteries of attraction, the patterns shaping your relationships, and the hidden gifts waiting to be awakened within you." + "\n\n" +
-        "A little wisdom. A little magic. Perhaps a few uncomfortable truths delivered with love. 😉\n\nWhether you're navigating dating, breaking old relationship patterns, or ready to experience love in a whole new way, your transformation begins within. Discover the art of becoming magnetic to healthy, passionate, devoted love—without losing yourself in the process.\n\nShall we begin your alchemy? 💜" + "\n\n" +
-        "I'm AI, not Elena herself or a therapist. Messages are processed by an AI provider and stored for continuity. Please avoid identifying or highly sensitive details. Use /reset to clear your chat history (your trial count stays)." + "\n\n" +
-        "✨ Your first 10 personalized AI replies are my gift to you. This discovery journey doesn't use any of them." + "\n\n" +
-        "Shall we begin, darling? Where are you in your love life right now?",
+        "Welcome to The Love Alchemist.\n\n"
+        "Darling, love is an art. And you, my dear, are both the masterpiece and the alchemist.\n\n"
+        "Here, we explore the mysteries of attraction, the patterns shaping your relationships, "
+        "and the hidden gifts waiting to be awakened within you.\n\n"
+        "A little wisdom. A little magic. Perhaps a few deliciously uncomfortable truths—delivered with love.\n\n"
+        "Your first 10 personalized AI replies are complimentary. The discovery questions won't use them.\n\n"
+        "I'm an AI mentor, not Elena or a therapist. Your messages are processed by an AI provider "
+        "and stored for continuity; please avoid sharing identifying or highly sensitive details. "
+        "Use /reset to clear your chat history (without resetting your trial count).\n\n"
+        "Now, darling, where are you in your love life?",
         reply_markup=buttons([s[0] for s in STATUS], "s:"))
 
 async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -389,14 +393,14 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if kind == "s" and idx < len(STATUS):
             conn.execute("UPDATE profiles SET status=?,patterns=NULL,goal=NULL,stage=2 WHERE user_id=?", (STATUS[idx][0], uid))
             await q.message.reply_text(
-                "Lovely to meet you. 💜 Where shall we begin your love alchemy?\n\n"
+                "Lovely to meet you. Where shall we begin your love alchemy?\n\n"
                 "Explore a hidden pattern, discover the archetypes influencing your love life, "
                 "or bring me any dating or relationship question.",
                 reply_markup=buttons([
                     "🔍 Decode my love patterns",
-                    "👑 Explore feminine archetypes",
-                    "⚔️ Explore masculine archetypes",
-                    "💬 Ask my own question"
+                    "Explore feminine archetypes",
+                    "Explore masculine archetypes",
+                    "Ask my own question"
                 ], "a:"))
         elif kind == "a" and idx in (0, 1, 2, 3):
             goals = ("patterns", "feminine_archetypes", "masculine_archetypes", "conversation")
@@ -404,11 +408,11 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await introduce_menu(q.message)
             if idx == 0:
                 await q.message.reply_text(
-                    "Let's decode the love story that keeps repeating. 🔍💜\n\n"
+                    "Let's decode the love story that keeps repeating.\n\n"
                     "What is one pattern you notice in dating or relationships—even if you don't yet understand why it happens?")
             elif idx == 1:
                 await q.message.reply_text(
-                    "Welcome to your inner cast of characters. 👑\n\n"
+                    "Welcome to your inner cast of characters.\n\n"
                     "Feminine archetypes—Queen, Lover, Priestess, Princess, Mother, Warrior and more—"
                     "are symbolic parts of ourselves, each with gifts and shadows. They're not fixed personality types.\n\n"
                     "Let's explore yours with five playful questions, one at a time. "
@@ -416,7 +420,7 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "try to impress them, care for them, observe carefully, or keep your independence?")
             elif idx == 2:
                 await q.message.reply_text(
-                    "Ready to meet your inner King, Warrior, Magician, Lover and Jester? ⚔️✨\n\n"
+                    "Ready to meet your inner King, Warrior, Magician, Lover and Jester?\n\n"
                     "These masculine archetypes are energies anyone can explore—not labels or a test of manhood. "
                     "We'll do a five-question reflection, one question at a time, then uncover your likely gifts, "
                     "protective shadows, and one growth practice.\n\n"
@@ -424,7 +428,7 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "take charge, solve the problem, withdraw to think, seek closeness, or use humor?")
             else:
                 await q.message.reply_text(
-                    "I'm listening. 💜 What's your dating or relationship question? "
+                    "I'm listening. What's your dating or relationship question? "
                     "You can start anywhere.")
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=None):
@@ -543,7 +547,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
             + (" IMPORTANT: User accepted a practice. If you offered a SHORT or 3–4 minute exercise, give a complete short IN-CHAT guided exercise, NOT a recording link. Only give the exact PRACTICES URL if you explicitly offered a recorded practice." if practice_followup else "")
         )
         if goal in ("feminine_archetypes", "masculine_archetypes"):
-            context_note += "\\nARCHETYPE DISCOVERY MODE: User selected " + goal + ". Follow the five-question conversational discovery instructions; first question was already asked in onboarding.\\n"
+            context_note += "\nARCHETYPE DISCOVERY MODE: User selected " + goal + ". Follow the five-question conversational discovery instructions; first question was already asked in onboarding.\n"
         await update.effective_chat.send_action("typing")
         try:
             response = await AI.responses.create(
