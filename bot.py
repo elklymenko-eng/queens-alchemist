@@ -536,13 +536,13 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["gender"]=discovery.GENDER[idx]
         with db() as c:
             c.execute("UPDATE profiles SET gender=?,discovery_answers=? WHERE user_id=?",(state["gender"],json.dumps(state),uid))
-        await q.message.reply_text("What keeps happening in your love life that you're ready to change?\\n\\nChoose up to two; tap Continue when ready.",reply_markup=discovery.markup(discovery.PATTERNS,"pattern",selected=state.get("patterns",[]),multi=True,back=True))
+        await q.message.reply_text("What keeps repeating in your love life?\n\nChoose up to two, then tap Continue.",reply_markup=discovery.markup(discovery.PATTERNS,"pattern",selected=state.get("patterns",[]),multi=True,back=True))
         return
     if action=="pattern" and idx<len(discovery.PATTERNS) and goal=="patterns":
         selected=state.get("patterns",[])
-        if idx==6: selected=[6]
+        if idx==7: selected=[7]
         elif idx in selected: selected=[x for x in selected if x!=idx]
-        else: selected=(selected if 6 not in selected else [])+[idx]
+        else: selected=(selected if 7 not in selected else [])+[idx]
         selected=selected[-2:]
         state["patterns"]=selected
         with db() as c:
@@ -558,9 +558,26 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action=="reaction" and idx<len(discovery.REACTIONS) and goal=="patterns":
         state["reaction"]=discovery.REACTIONS[idx]
         with db() as c:
+            c.execute("UPDATE profiles SET discovery_answers=? WHERE user_id=?",(json.dumps(state),uid))
+        await q.message.edit_reply_markup(reply_markup=None)
+        await q.message.reply_text("What feels most vulnerable in love?",reply_markup=discovery.markup(discovery.FEARS,"fear",back=True))
+        return
+    if action=="fear" and idx<len(discovery.FEARS) and goal=="patterns":
+        if "reaction" not in state: return
+        state["fear"]=discovery.FEARS[idx]
+        with db() as c:
+            c.execute("UPDATE profiles SET discovery_answers=? WHERE user_id=?",(json.dumps(state),uid))
+        await q.message.edit_reply_markup(reply_markup=None)
+        await q.message.reply_text("What do you most desire in love?",reply_markup=discovery.markup(discovery.DESIRES,"desire",back=True))
+        return
+    if action=="desire" and idx<len(discovery.DESIRES) and goal=="patterns":
+        if "fear" not in state: return
+        state["desire"]=discovery.DESIRES[idx]
+        with db() as c:
             c.execute("UPDATE profiles SET stage=4,discovery_answers=? WHERE user_id=?",(json.dumps(state),uid))
-        await q.message.reply_text("Your discovery is ready. Let's look beneath the surface—without pretending a few buttons tell your whole story.")
-        await chat(update,context,msg_override="Please reflect briefly on my saved pattern discovery answers. Offer one tentative insight and ask ONE clarifying question about my actual experience. Don't diagnose me.")
+        await q.message.edit_reply_markup(reply_markup=None)
+        await q.message.reply_text("Your discovery is ready. These answers offer clues, not a diagnosis. Let's explore what they may reveal.")
+        await chat(update,context,msg_override="Reflect on my saved pattern discovery, including reaction, vulnerability, and desired experience of love. Offer one tentative, specific insight, not a diagnosis. Ask ONE thoughtful follow-up question to begin a natural conversation.")
         return
     if action.startswith("quiz") and goal in ("feminine_archetypes","masculine_archetypes"):
         try: step=int(action[4:])
