@@ -2,7 +2,8 @@
 import json
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-PATHS = ["Decode my love patterns", "Explore feminine archetypes", "Explore masculine archetypes", "Ask my own question"]
+PATHS = ["Decode my love patterns", "Explore my inner archetypes", "Create my Love Vision", "Ask my own question"]
+ARCHETYPE_PATHS = ["Feminine archetypes", "Masculine archetypes"]
 STATUS = ["Single and looking for love", "Dating or exploring connections", "In a relationship", "Healing or starting over", "It's complicated"]
 GENDER = ["Woman", "Man", "Nonbinary / another identity", "Prefer not to say"]
 PATTERNS = [
@@ -84,7 +85,7 @@ def markup(options, prefix, selected=(), multi=False, back=False):
         rows.append([InlineKeyboardButton(mark+label,callback_data=f"ob:{prefix}:{i}")])
     if multi:
         rows.append([InlineKeyboardButton("Continue",callback_data="ob:patternnext:0")])
-    rows.append([InlineKeyboardButton("Ask my own question / Skip",callback_data="ob:skip:0")])
+
     if back:
         rows.append([InlineKeyboardButton("Back to pathways",callback_data="ob:home:0")])
     return InlineKeyboardMarkup(rows)
