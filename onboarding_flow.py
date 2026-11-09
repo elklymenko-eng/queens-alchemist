@@ -7,14 +7,17 @@ ARCHETYPE_PATHS = ["Feminine archetypes", "Masculine archetypes"]
 STATUS = ["Single and looking for love", "Dating or exploring connections", "In a relationship", "Healing or starting over", "It's complicated"]
 GENDER = ["Woman", "Man", "Nonbinary / another identity", "Prefer not to say"]
 PATTERNS = [
-    "I keep attracting people who can't fully meet me",
-    "I give more than I receive",
-    "The people I want don't seem to choose me",
-    "I struggle to create or sustain attraction",
-    "I want closeness, but something holds me back",
-    "I keep experiencing conflict or disconnection",
-    "I'm not sure what my pattern is yet",
+"I attract unavailable partners",
+"I give more than I receive",
+"I don't feel fully chosen",
+"Attraction doesn't last",
+"I fear getting too close",
+"Conflict and disconnection",
+"I don't feel fully met",
+"I'm not sure yet",
 ]
+FEARS = ["Being abandoned or rejected","Not feeling good enough","Losing my freedom or myself","Being betrayed or hurt","Being truly seen and vulnerable","I'm not sure yet"]
+DESIRES = ["To feel chosen and cherished","Passion and deep intimacy","Safety and emotional trust","Mutual care and devotion","Freedom and authenticity","Joy, adventure, and play"]
 REACTIONS = [
     "I overthink and seek reassurance",
     "I try harder, give more, or take charge",
