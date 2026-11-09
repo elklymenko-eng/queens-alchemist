@@ -689,7 +689,19 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         journal_context = ("USER-APPROVED ALCHEMY JOURNAL (not a diagnosis; may be revised): " + alchemy_journal.render(journal_entries)[:2400]) if journal_entries else ""
         with db() as c:
             discovery_row=c.execute("SELECT gender,discovery_answers FROM profiles WHERE user_id=?",(uid,)).fetchone()
-        discovery_context="; gender="+str(discovery_row[0] or "not specified")+"; discovery selections="+str(discovery_row[1] or "none")[:2500]
+        try:
+            saved_discovery=json.loads(discovery_row[1] or "{}")
+        except (ValueError,TypeError):
+            saved_discovery={}
+        if saved_discovery.get("quiz") and goal in ("feminine_archetypes","masculine_archetypes"):
+            kind="feminine" if goal=="feminine_archetypes" else "masculine"
+            readable=[]
+            for qi, choice in enumerate(saved_discovery["quiz"][:5]):
+                question, choices=discovery.quiz_question(kind,qi)
+                if isinstance(choice,int) and 0<=choice<len(choices):
+                    readable.append(f"{qi+1}. {question} => {choices[choice]}")
+            saved_discovery["quiz_answers_readable"]=readable
+        discovery_context="; gender="+str(discovery_row[0] or "not specified")+"; discovery selections="+json.dumps(saved_discovery,ensure_ascii=False)[:3500]
         context_note = (
             "COACHING PRIORITY THIS TURN: Do not mirror or summarize the user's story at length. "
             "After one brief acknowledgment, deliver a specific teaching, discernment, or actionable next step. "
