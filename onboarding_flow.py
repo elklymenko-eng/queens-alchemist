@@ -89,8 +89,10 @@ def markup(options, prefix, selected=(), multi=False, back=False):
     if back:
         rows.append([InlineKeyboardButton("Back to pathways",callback_data="ob:home:0")])
     return InlineKeyboardMarkup(rows)
+SHORT_CHOICES = {"feminine":[["Affection and pleasure","Wonder and imagination","Caring for others","Taking action","Intuition and insight","Freedom and adventure","Calm discernment","Humor and play"],["Passion and intimacy","To be cherished","Mutual care","Respect and autonomy","Soulful depth","Freedom and adventure","Secure devotion","Laughter and play"],["Try to be desirable","Seek reassurance","Give or fix more","Take control","Retreat into thought","Escape or rebel","Become distant","Joke it away"],["Warmth and passion","Optimism","Compassion","Courage","Intuition","Adventurous spirit","Discernment","Humor"]],"masculine":[["Calm leadership","Explore my potential","Courage and action","Creative solutions","Affection and passion","Humor and spontaneity"],["Build something meaningful","Develop my abilities","Overcome challenges","Understand and create","Deep connection","Freedom and laughter"],["Control or withdraw","Overprove myself","Fight or avoid conflict","Overanalyze","Seek validation","Hide behind humor"],["Steadiness","Ambition","Courage","Creativity","Tenderness","Humor"]]}
 def quiz_question(kind, step):
-    return QUIZZES[kind][step]
+    prompt, original = QUIZZES[kind][step]
+    return prompt, SHORT_CHOICES[kind][step] if step < 4 else original
 def summarize(kind, answers):
     names=ARCHETYPES[kind]
     tally={name:0 for name in names}
