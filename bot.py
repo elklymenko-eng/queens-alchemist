@@ -6,6 +6,7 @@ TEACHINGS_PATH = Path(__file__).with_name("masculine_alchemy_teachings.md")
 import alchemy_journal
 import subscription
 import daily_alchemy
+import onboarding_flow as discovery
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -44,6 +45,7 @@ MODULE_NAMES = [
     "feminine_radiance.md",
     "feline_flirting.md",
     "art_of_deepening.md",
+    "archetype_wholeness.md",
 ]
 MODULES = "\n\n".join((BASE / "v2" / name).read_text(encoding="utf-8")
                       for name in MODULE_NAMES if (BASE / "v2" / name).exists())
@@ -55,7 +57,7 @@ LOCKS = {}
 
 SYSTEM = """You are The Love Alchemist, a feminine, wise, witty, playful and warmly discerning AI coaching companion based on Elena's Queen's Alchemy teachings. You are not Elena, a therapist, or a human. Be perceptive, warm, witty when appropriate and concise. Vary natural terms of address (beautiful, beauty, darling, lovely, Queen), or use none. Only use a preferred first name sparingly. Answer the actual question first. Ask at most one intelligent question at a time. Archetypes are integrated aspects, not exclusive personality types or diagnoses; the Queen compassionately holds them and chooses. Do not mind-read men, blame women for partners' conduct, or claim spiritual causation. Don't require childhood work or pressure dating decisions. Offer one optional short practice when appropriate; do not promise outcomes or invent URLs. Prioritize safety if coercion, abuse, crisis or serious health risk arises. Avoid upselling during distress. This is educational coaching, not psychotherapy. When genuinely relevant after helping, you may offer exactly these two optional paths: self-paced Queen's Inner Alchemy course at https://lifeforcewell.com/b/inneralchemy and private mentorship at https://lifeforcewell.com/b/mentorship. Do not invent prices, details or guarantees. Never force an offer, and never misrepresent a purchase link as a free resource.
 
-ONBOARDING ARCHETYPE DISCOVERY: If the user's saved goal is feminine_archetypes or masculine_archetypes, continue a conversational five-question archetype reflection, ONE question per reply. The first question was already asked in onboarding; do not restart it. Track progress from the current conversation and ask the next question naturally. Cover: response to uncertainty; what they most seek in love; behavior under stress; strength they bring to partnership; growth edge. After the fifth answer, offer a tentative, personalized synthesis of two prominent archetypal gifts, one protective shadow, and one practical integration exercise. For masculine, draw from King (grounded leadership and responsibility), Warrior (boundaries and action), Magician (insight and transformation), Lover (feeling and connection), Jester (humor and flexibility), and Sage (wisdom). For feminine, draw from Queen, Princess, Priestess, Lover, Mother, Warrior, Wild Woman, and Jester. Everyone has access to all archetypes; never infer gender, diagnose, or claim scientific test validity. If they ask another question, answer it rather than forcing quiz completion. Do not burn replies on repetitive questions or claim an automated score. The goal is self-insight, not typing.\n\nINCLUSIVE ARCHETYPAL COACHING: Primary teachings speak to women, but all genders are welcome. Do not assume gender from a partner's gender. Adapt language respectfully when a user identifies their perspective. Do not impose royal labels. Draw on the additional masculine and Priestess teachings supplied after these instructions when relevant.
+ONBOARDING ARCHETYPE DISCOVERY: The user completes five FREE Telegram multiple-choice questions BEFORE the first AI interpretation. If onboarding answers are present in the context note, give a tentative, insightful synthesis of likely prominent gifts and possible protective shadows, explain that Queen/King means integration rather than a score, and ask ONE curious, context-specific follow-up question. Do not repeat the quiz or claim scientific validity. Prince is part of masculine archetypes; Magician includes Sage. Do not automatically keep asking five AI questions. If the user changes topic, answer their actual question.\n\nINCLUSIVE ARCHETYPAL COACHING: Primary teachings speak to women, but all genders are welcome. Do not assume gender from a partner's gender. Adapt language respectfully when a user identifies their perspective. Do not impose royal labels. Draw on the additional masculine and Priestess teachings supplied after these instructions when relevant.
 
 VOICE PRIORITY: Witty and warm first; compassionate, sophisticated, quietly mysterious, sensuous and playful when appropriate. Blend Magician and Lover, with Queen's discernment and Jester's light touch. Speak plainly and personally, not in ornate jargon. Preserve the current distinctive voice rather than rewriting its character. Emoji restraint: default to no emojis in AI replies and onboarding; use at most one occasionally when it genuinely adds warmth or mischief. Never decorate headings, every list item, or each paragraph with emojis.\n\nTHE LOVING CHALLENGER — COACHING DISCERNMENT:
 Be a warm, perceptive mentor, not an agreeable mirror. Preserve the existing witty, warm Magician/Lover voice with Queen discernment and light Jester humor. Curiosity before conclusions; insight before advice; transformation beyond insight; discernment before agreement.
@@ -171,6 +173,9 @@ def db():
         user_id INTEGER PRIMARY KEY, status TEXT, patterns TEXT, goal TEXT,
         preferred_name TEXT, stage INTEGER NOT NULL DEFAULT 0,
         replies_used INTEGER NOT NULL DEFAULT 0)""")
+    for col in ("gender", "discovery_answers"):
+        if col not in {row[1] for row in c.execute("PRAGMA table_info(profiles)").fetchall()}:
+            c.execute(f"ALTER TABLE profiles ADD COLUMN {col} TEXT")
     c.execute("CREATE TABLE IF NOT EXISTS daily_free_replies (user_id INTEGER PRIMARY KEY, utc_day TEXT NOT NULL)")
     alchemy_journal.initialize(c)
     subscription.initialize(c)
@@ -466,20 +471,19 @@ async def daily_scheduler_stop(app):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
-    uid = update.effective_user.id
-    profile(uid)
+    profile(update.effective_user.id)
     await update.effective_message.reply_text(
-        "Welcome to The Love Alchemist.\n\n"
-        "Darling, love is an art. And you, my dear, are both the masterpiece and the alchemist.\n\n"
+        "Welcome to The Love Alchemist.\\n\\n"
+        "Darling, love is an art. And you, my dear, are both the masterpiece and the alchemist.\\n\\n"
         "Here, we explore the mysteries of attraction, the patterns shaping your relationships, "
-        "and the hidden gifts waiting to be awakened within you.\n\n"
-        "A little wisdom. A little magic. Perhaps a few deliciously uncomfortable truths—delivered with love.\n\n"
-        "Your first 10 personalized AI replies are complimentary. The discovery questions won't use them.\n\n"
+        "and the hidden gifts waiting to be awakened within you.\\n\\n"
+        "A little wisdom. A little magic. Perhaps a few deliciously uncomfortable truths—delivered with love.\\n\\n"
+        "Your first 10 personalized AI replies are complimentary. Multiple-choice discovery questions are free.\\n\\n"
         "I'm an AI mentor, not Elena or a therapist. Your messages are processed by an AI provider "
-        "and stored for continuity; please avoid sharing identifying or highly sensitive details. "
-        "Use /reset to clear your chat history (without resetting your trial count).\n\n"
-        "Now, darling, where are you in your love life?",
-        reply_markup=buttons([s[0] for s in STATUS], "s:"))
+        "and stored for continuity; please avoid identifying or highly sensitive details. "
+        "Use /reset to clear your chat history (without resetting your trial count).\\n\\n"
+        "Where shall we begin your alchemy?",
+        reply_markup=discovery.markup(discovery.PATHS, "path"))
 
 async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -487,51 +491,96 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     uid = q.from_user.id
     profile(uid)
-    kind, value = q.data.split(":", 1)
-    if not value.isdigit(): return
-    idx = int(value)
-    with db() as conn:
-        current = conn.execute("SELECT patterns,stage FROM profiles WHERE user_id=?", (uid,)).fetchone()
-        if kind == "s" and idx < len(STATUS):
-            conn.execute("UPDATE profiles SET status=?,patterns=NULL,goal=NULL,stage=2 WHERE user_id=?", (STATUS[idx][0], uid))
+    parts = q.data.split(":")
+    if len(parts)!=3 or parts[0]!="ob" or not parts[2].isdigit(): return
+    action, idx = parts[1], int(parts[2])
+    with db() as c:
+        row=c.execute("SELECT goal,discovery_answers FROM profiles WHERE user_id=?",(uid,)).fetchone()
+    goal, raw = row
+    try: state=json.loads(raw) if raw else {}
+    except (ValueError,TypeError): state={}
+    if action=="home":
+        await q.message.reply_text("Where shall we begin?",reply_markup=discovery.markup(discovery.PATHS,"path"))
+        return
+    if action=="skip":
+        with db() as c:
+            c.execute("UPDATE profiles SET goal='conversation',stage=4 WHERE user_id=?",(uid,))
+        await q.message.reply_text("Of course, darling. What's on your mind? Ask anything about dating, attraction, or relationships. We can explore it together.")
+        return
+    if action=="path" and 0<=idx<4:
+        goal=("patterns","feminine_archetypes","masculine_archetypes","conversation")[idx]
+        state={"path":goal}
+        with db() as c:
+            c.execute("UPDATE profiles SET goal=?,stage=?,discovery_answers=? WHERE user_id=?",(goal,4 if idx==3 else 5,json.dumps(state),uid))
+        if idx==3:
+            await q.message.reply_text("I'm listening. What's your dating or relationship question? You can start anywhere.")
+        elif idx==0:
+            await q.message.reply_text("Let's decode what keeps repeating—without jumping to conclusions. First, where are you in your love life?",reply_markup=discovery.markup(discovery.STATUS,"status",back=True))
+        else:
+            kind="feminine" if idx==1 else "masculine"
             await q.message.reply_text(
-                "Lovely to meet you. Where shall we begin your love alchemy?\n\n"
-                "Explore a hidden pattern, discover the archetypes influencing your love life, "
-                "or bring me any dating or relationship question.",
-                reply_markup=buttons([
-                    "🔍 Decode my love patterns",
-                    "Explore feminine archetypes",
-                    "Explore masculine archetypes",
-                    "Ask my own question"
-                ], "a:"))
-        elif kind == "a" and idx in (0, 1, 2, 3):
-            goals = ("patterns", "feminine_archetypes", "masculine_archetypes", "conversation")
-            conn.execute("UPDATE profiles SET goal=?,stage=4 WHERE user_id=?", (goals[idx], uid))
-            await introduce_menu(q.message)
-            if idx == 0:
-                await q.message.reply_text(
-                    "Let's decode the love story that keeps repeating.\n\n"
-                    "What is one pattern you notice in dating or relationships—even if you don't yet understand why it happens?")
-            elif idx == 1:
-                await q.message.reply_text(
-                    "Welcome to your inner cast of characters.\n\n"
-                    "Feminine archetypes—Queen, Lover, Priestess, Princess, Mother, Warrior and more—"
-                    "are symbolic parts of ourselves, each with gifts and shadows. They're not fixed personality types.\n\n"
-                    "Let's explore yours with five playful questions, one at a time. "
-                    "When you really like someone, what do you tend to do first: open your heart, "
-                    "try to impress them, care for them, observe carefully, or keep your independence?")
-            elif idx == 2:
-                await q.message.reply_text(
-                    "Ready to meet your inner King, Warrior, Magician, Lover and Jester?\n\n"
-                    "These masculine archetypes are energies anyone can explore—not labels or a test of manhood. "
-                    "We'll do a five-question reflection, one question at a time, then uncover your likely gifts, "
-                    "protective shadows, and one growth practice.\n\n"
-                    "Question 1: When a relationship feels uncertain, what's your first instinct—"
-                    "take charge, solve the problem, withdraw to think, seek closeness, or use humor?")
-            else:
-                await q.message.reply_text(
-                    "I'm listening. What's your dating or relationship question? "
-                    "You can start anywhere.")
+                "Meet your inner cast of characters. These are symbolic gifts and protective parts, not fixed personality types. "
+                "The Queen or King represents the wholeness that welcomes and integrates them all. "
+                "Five playful multiple-choice questions are free; then we'll explore your answers together.\\n\\n"
+                "1/5 · "+discovery.quiz_question(kind,0)[0],
+                reply_markup=discovery.markup(discovery.quiz_question(kind,0)[1],"quiz0",back=True))
+        return
+    if action=="status" and idx<len(discovery.STATUS) and goal=="patterns":
+        state["status"]=discovery.STATUS[idx]
+        with db() as c:
+            c.execute("UPDATE profiles SET status=?,discovery_answers=? WHERE user_id=?",(state["status"],json.dumps(state),uid))
+        await q.message.reply_text("How do you identify? This only helps personalize language, never limits your archetypes or assumptions about who you love.",reply_markup=discovery.markup(discovery.GENDER,"gender",back=True))
+        return
+    if action=="gender" and idx<len(discovery.GENDER) and goal=="patterns":
+        state["gender"]=discovery.GENDER[idx]
+        with db() as c:
+            c.execute("UPDATE profiles SET gender=?,discovery_answers=? WHERE user_id=?",(state["gender"],json.dumps(state),uid))
+        await q.message.reply_text("What keeps happening in your love life that you're ready to change?\\n\\nChoose up to two; tap Continue when ready.",reply_markup=discovery.markup(discovery.PATTERNS,"pattern",selected=state.get("patterns",[]),multi=True,back=True))
+        return
+    if action=="pattern" and idx<len(discovery.PATTERNS) and goal=="patterns":
+        selected=state.get("patterns",[])
+        if idx==6: selected=[6]
+        elif idx in selected: selected=[x for x in selected if x!=idx]
+        else: selected=(selected if 6 not in selected else [])+[idx]
+        selected=selected[-2:]
+        state["patterns"]=selected
+        with db() as c:
+            c.execute("UPDATE profiles SET patterns=?,discovery_answers=? WHERE user_id=?",(json.dumps([discovery.PATTERNS[i] for i in selected]),json.dumps(state),uid))
+        await q.message.edit_reply_markup(reply_markup=discovery.markup(discovery.PATTERNS,"pattern",selected=selected,multi=True,back=True))
+        return
+    if action=="patternnext" and goal=="patterns":
+        if not state.get("patterns"):
+            await q.message.reply_text("Choose at least one pattern, or tap Skip to ask your own question.")
+            return
+        await q.message.reply_text("When love feels uncertain, what do you tend to do?",reply_markup=discovery.markup(discovery.REACTIONS,"reaction",back=True))
+        return
+    if action=="reaction" and idx<len(discovery.REACTIONS) and goal=="patterns":
+        state["reaction"]=discovery.REACTIONS[idx]
+        with db() as c:
+            c.execute("UPDATE profiles SET stage=4,discovery_answers=? WHERE user_id=?",(json.dumps(state),uid))
+        await q.message.reply_text("Your discovery is ready. Let's look beneath the surface—without pretending a few buttons tell your whole story.")
+        await chat(update,context,msg_override="Please reflect briefly on my saved pattern discovery answers. Offer one tentative insight and ask ONE clarifying question about my actual experience. Don't diagnose me.")
+        return
+    if action.startswith("quiz") and goal in ("feminine_archetypes","masculine_archetypes"):
+        try: step=int(action[4:])
+        except ValueError: return
+        kind="feminine" if goal=="feminine_archetypes" else "masculine"
+        if step<0 or step>=5 or idx>=len(discovery.quiz_question(kind,step)[1]): return
+        answers=state.get("quiz",[])
+        if len(answers)!=step:
+            await q.message.reply_text("Let's resume from the beginning so your answers stay in order.",reply_markup=discovery.markup(discovery.quiz_question(kind,0)[1],"quiz0",back=True))
+            return
+        answers.append(idx)
+        state["quiz"]=answers
+        with db() as c:
+            c.execute("UPDATE profiles SET discovery_answers=?,stage=? WHERE user_id=?",(json.dumps(state),4 if step==4 else 5,uid))
+        if step<4:
+            prompt, options=discovery.quiz_question(kind,step+1)
+            await q.message.reply_text(f"{step+2}/5 · {prompt}",reply_markup=discovery.markup(options,f"quiz{step+1}",back=True))
+        else:
+            await q.message.reply_text("Your five free reflections are complete. Now let's meet the gifts and protective patterns they might reveal.")
+            await chat(update,context,msg_override="Please offer my personalized, tentative "+kind+" archetype reflection using my saved five quiz answers. Identify two possible prominent gifts and one protective shadow, distinguish inherent worth from confidence, and ask ONE grounded follow-up question. Queen/King is integration, not a score.")
+        return
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=None):
     if not await gate(update): return
@@ -572,6 +621,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         status, pattern, goal, name, stage, used = profile(uid)
         if goal in ("feminine_archetypes", "masculine_archetypes"):
             context.user_data["archetype_mode"] = goal
+        if stage == 5:
+            with db() as c:
+                c.execute("UPDATE profiles SET stage=4,goal='conversation' WHERE user_id=?",(uid,))
+            goal="conversation"
         if stage == 3:
             if msg.lower() not in ("skip", "no", "prefer not"):
                 name = msg[:60]
@@ -634,13 +687,16 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         with db() as c:
             journal_entries = alchemy_journal.get_entries(c, uid)
         journal_context = ("USER-APPROVED ALCHEMY JOURNAL (not a diagnosis; may be revised): " + alchemy_journal.render(journal_entries)[:2400]) if journal_entries else ""
+        with db() as c:
+            discovery_row=c.execute("SELECT gender,discovery_answers FROM profiles WHERE user_id=?",(uid,)).fetchone()
+        discovery_context="; gender="+str(discovery_row[0] or "not specified")+"; discovery selections="+str(discovery_row[1] or "none")[:2500]
         context_note = (
             "COACHING PRIORITY THIS TURN: Do not mirror or summarize the user's story at length. "
             "After one brief acknowledgment, deliver a specific teaching, discernment, or actionable next step. "
             "Connect to her desired love vision when relevant, and guide forward rather than asking generic feelings questions. "
             "If she reports a healthy boundary or insight already achieved, advance the journey instead of re-validating it. "
             "ONBOARDING (self-reported, tentative): status=" + str(status)
-            + "; pattern=" + str(pattern) + "; goal=" + str(goal)
+            + "; pattern=" + str(pattern) + "; goal=" + str(goal) + discovery_context
             + "; preferred address=" + str(name or "none")
             + ". Trial replies remaining including this one: " + str(remaining)
             + ". Do not repeat a rigid funnel; be helpful now. If user says start, invite one specific exploration."
@@ -651,7 +707,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         if goal in ("love_vision", "outer_alchemy", "inner_alchemy", "choose_journey"):
             context_note += "\\nLOVE ALCHEMY JOURNEY: Current selected pathway=" + goal + ". Follow the signature journey instructions, drawing on saved Journal vision if available.\\n"
         if goal in ("feminine_archetypes", "masculine_archetypes"):
-            context_note += "\nARCHETYPE DISCOVERY MODE: User selected " + goal + ". Follow the five-question conversational discovery instructions; first question was already asked in onboarding.\n"
+            context_note += "\nARCHETYPE DISCOVERY MODE: The user has completed the free multiple-choice quiz if five selections appear in discovery context. Interpret them tentatively, do not restart the quiz.\n"
         await update.effective_chat.send_action("typing")
         try:
             response = await AI.responses.create(
@@ -1072,7 +1128,7 @@ if __name__ == "__main__":
     app.add_handler(CallbackQueryHandler(daily_button, pattern=r"^daily:"))
     app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))
     app.add_handler(CallbackQueryHandler(love_journey_button, pattern=r"^love:"))
-    app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^(s|a):"))
+    app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^ob:"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
     app.add_handler(CallbackQueryHandler(journal_button, pattern=r"^j:(save|edit|later|never|view)$"))
     app.add_handler(CallbackQueryHandler(testimonial_permission, pattern=r"^t:[anp]:[0-9]+$"))
