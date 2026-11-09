@@ -473,16 +473,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     profile(update.effective_user.id)
     await update.effective_message.reply_text(
-        "Welcome to The Love Alchemist.\\n\\n"
-        "Darling, love is an art. And you, my dear, are both the masterpiece and the alchemist.\\n\\n"
-        "Here, we explore the mysteries of attraction, the patterns shaping your relationships, "
-        "and the hidden gifts waiting to be awakened within you.\\n\\n"
-        "A little wisdom. A little magic. Perhaps a few deliciously uncomfortable truths—delivered with love.\\n\\n"
-        "Your first 10 personalized AI replies are complimentary. Multiple-choice discovery questions are free.\\n\\n"
-        "I'm an AI mentor, not Elena or a therapist. Your messages are processed by an AI provider "
-        "and stored for continuity; please avoid identifying or highly sensitive details. "
-        "Use /reset to clear your chat history (without resetting your trial count).\\n\\n"
-        "Where shall we begin your alchemy?",
+        "Welcome to The Love Alchemist.\n\n"
+        "Darling, love is an art. And you, my dear, are both the masterpiece and the alchemist.\n\n"
+        "I'm your private AI mentor for love, dating, and the adventure of becoming more fully yourself.\n\n"
+        "Your first 10 AI replies are complimentary. I'm an AI mentor, not a therapist; messages are processed by an AI provider and stored for continuity. Avoid sharing highly sensitive details. /reset clears chat history, not trial usage.\n\n"
+        "What's on your heart today?",
         reply_markup=discovery.markup(discovery.PATHS, "path"))
 
 async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -508,22 +503,28 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("Of course, darling. What's on your mind? Ask anything about dating, attraction, or relationships. We can explore it together.")
         return
     if action=="path" and 0<=idx<4:
-        goal=("patterns","feminine_archetypes","masculine_archetypes","conversation")[idx]
+        if idx==1:
+            await q.message.reply_text("Shall we explore your feminine or masculine archetypes? Both are available to everyone.", reply_markup=discovery.markup(discovery.ARCHETYPE_PATHS,"archetype",back=True))
+            return
+        goal=("patterns","archetype_choice","love_vision","conversation")[idx]
         state={"path":goal}
         with db() as c:
-            c.execute("UPDATE profiles SET goal=?,stage=?,discovery_answers=? WHERE user_id=?",(goal,4 if idx==3 else 5,json.dumps(state),uid))
+            c.execute("UPDATE profiles SET goal=?,stage=?,discovery_answers=? WHERE user_id=?",(goal,4 if idx>=2 else 5,json.dumps(state),uid))
         if idx==3:
-            await q.message.reply_text("I'm listening. What's your dating or relationship question? You can start anywhere.")
-        elif idx==0:
-            await q.message.reply_text("Let's decode what keeps repeating—without jumping to conclusions. First, where are you in your love life?",reply_markup=discovery.markup(discovery.STATUS,"status",back=True))
+            await q.message.reply_text("I'm listening. What's on your mind?")
+        elif idx==2:
+            await q.message.reply_text("Let's create your Love Vision. In an ordinary moment with the relationship you desire, what would you love to experience?")
         else:
-            kind="feminine" if idx==1 else "masculine"
-            await q.message.reply_text(
-                "Meet your inner cast of characters. These are symbolic gifts and protective parts, not fixed personality types. "
-                "The Queen or King represents the wholeness that welcomes and integrates them all. "
-                "Five playful multiple-choice questions are free; then we'll explore your answers together.\\n\\n"
-                "1/5 · "+discovery.quiz_question(kind,0)[0],
-                reply_markup=discovery.markup(discovery.quiz_question(kind,0)[1],"quiz0",back=True))
+            await q.message.reply_text("Let's decode what keeps repeating. Where are you in your love life?",reply_markup=discovery.markup(discovery.STATUS,"status",back=True))
+        return
+    if action=="archetype" and idx in (0,1):
+        kind="feminine" if idx==0 else "masculine"
+        goal=kind+"_archetypes"
+        state={"path":goal,"quiz":[]}
+        with db() as c:
+            c.execute("UPDATE profiles SET goal=?,stage=5,discovery_answers=? WHERE user_id=?",(goal,json.dumps(state),uid))
+        prompt, options=discovery.quiz_question(kind,0)
+        await q.message.reply_text("Meet your inner cast of characters. Four playful questions, then a personal reflection. These are metaphors, not fixed labels.\n\n1/4 · "+prompt,reply_markup=discovery.markup(options,"quiz0",back=True))
         return
     if action=="status" and idx<len(discovery.STATUS) and goal=="patterns":
         state["status"]=discovery.STATUS[idx]
@@ -565,21 +566,22 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try: step=int(action[4:])
         except ValueError: return
         kind="feminine" if goal=="feminine_archetypes" else "masculine"
-        if step<0 or step>=5 or idx>=len(discovery.quiz_question(kind,step)[1]): return
+        if step<0 or step>=4 or idx>=len(discovery.quiz_question(kind,step)[1]): return
         answers=state.get("quiz",[])
         if len(answers)!=step:
             await q.message.reply_text("Let's resume from the beginning so your answers stay in order.",reply_markup=discovery.markup(discovery.quiz_question(kind,0)[1],"quiz0",back=True))
             return
         answers.append(idx)
         state["quiz"]=answers
+        await q.message.edit_reply_markup(reply_markup=None)
         with db() as c:
-            c.execute("UPDATE profiles SET discovery_answers=?,stage=? WHERE user_id=?",(json.dumps(state),4 if step==4 else 5,uid))
-        if step<4:
+            c.execute("UPDATE profiles SET discovery_answers=?,stage=? WHERE user_id=?",(json.dumps(state),4 if step==3 else 5,uid))
+        if step<3:
             prompt, options=discovery.quiz_question(kind,step+1)
-            await q.message.reply_text(f"{step+2}/5 · {prompt}",reply_markup=discovery.markup(options,f"quiz{step+1}",back=True))
+            await q.message.reply_text(f"{step+2}/4 · {prompt}",reply_markup=discovery.markup(options,f"quiz{step+1}",back=True))
         else:
-            await q.message.reply_text("Your five free reflections are complete. Now let's meet the gifts and protective patterns they might reveal.")
-            await chat(update,context,msg_override="Please offer my personalized, tentative "+kind+" archetype reflection using my saved five quiz answers. Identify two possible prominent gifts and one protective shadow, distinguish inherent worth from confidence, and ask ONE grounded follow-up question. Queen/King is integration, not a score.")
+            await q.message.reply_text("Your four reflections are complete. Now let's meet the gifts and protective patterns they might reveal.")
+            await chat(update,context,msg_override="Please offer my personalized, tentative "+kind+" archetype reflection using my saved four quiz answers. Identify two possible prominent gifts and one protective shadow, distinguish inherent worth from confidence, and ask ONE grounded follow-up question. Queen/King is integration, not a score.")
         return
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=None):
