@@ -4,17 +4,19 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 PATHS = ["Decode my love patterns", "Explore my inner archetypes", "Create my Love Vision", "Ask my own question"]
 ARCHETYPE_PATHS = ["Feminine archetypes", "Masculine archetypes"]
-STATUS = ["Single and looking for love", "Dating or exploring connections", "In a relationship", "Healing or starting over", "It's complicated"]
-GENDER = ["Woman", "Man", "Nonbinary / another identity", "Prefer not to say"]
+STATUS = ["Single / open to love", "Dating someone", "In a relationship", "After a breakup / starting over", "It's complicated!"]
+GENDER = ["Woman", "Man", "Non-binary", "Prefer not to say"]
 PATTERNS = [
-"I attract unavailable partners",
-"I give more than I receive",
-"I don't feel fully chosen",
-"Attraction doesn't last",
-"I fear getting too close",
-"Conflict and disconnection",
-"I don't feel fully met",
-"I'm not sure yet",
+    "I struggle to get dates",
+    "I attract unavailable partners",
+    "I don't feel fully chosen",
+    "I give more than I receive",
+    "I don't feel fully met",
+    "Attraction or passion fades",
+    "I fear getting too close",
+    "Conflict and disconnection",
+    "I struggle to trust",
+    "I'm not sure yet",
 ]
 FEARS = ["Being abandoned or rejected","Not feeling good enough","Losing my freedom or myself","Being betrayed or hurt","Being truly seen and vulnerable","I'm not sure yet"]
 DESIRES = ["To feel chosen and cherished","Passion and deep intimacy","Safety and emotional trust","Mutual care and devotion","Freedom and authenticity","Joy, adventure, and play"]
