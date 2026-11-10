@@ -458,6 +458,8 @@ async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("Use /remaining to see your free or paid AI reply allowance.")
     elif action == "menu:membership":
         await q.message.reply_text("Use /subscribe to see the 199-Star subscription, or /subscription to check active access.")
+    elif action == "menu:privacy":
+        await q.message.reply_text("Privacy & AI: The Love Alchemist is an AI mentor. Messages are processed by an AI provider and stored for continuity; Telegram bot chats are not end-to-end encrypted. For full details, use /privacy.")
     elif action == "menu:help":
         await q.message.reply_text("Use /help for all shortcuts. You can also ask me for guidance in everyday language.")
 
@@ -471,7 +473,7 @@ async def daily_scheduler_start(app):
             ("remaining","Check replies"), ("journey","My Alchemy Journal"),
             ("reset","Clear chat history"), ("subscribe","Subscribe"),
             ("subscription","Subscription status"), ("feedback","Share feedback"),
-            ("help","Help and settings"), ("paysupport","Payment support"),
+            ("help","Help and settings"), ("privacy","Privacy & AI"), ("paysupport","Payment support"),
         ])
     except Exception:
         log.exception("Could not publish Telegram command menu")
