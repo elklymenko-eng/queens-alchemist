@@ -638,8 +638,6 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
     lock = LOCKS.setdefault(uid, asyncio.Lock())
     async with lock:
         status, pattern, goal, name, stage, used = profile(uid)
-        if goal=="patterns":
-            context_note += "\nRELATIONSHIP PATTERN MODE: Use plain, accessible language. Do not automatically interpret answers as archetypes. After initial discovery, ask for a concrete example before developing deeper hypotheses. Introduce archetypes only occasionally, with a simple explanation and contextual relevance.\n"
         if goal in ("feminine_archetypes", "masculine_archetypes"):
             context.user_data["archetype_mode"] = goal
         if stage == 5:
@@ -739,6 +737,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE, msg_override=
         )
         if goal in ("love_vision", "outer_alchemy", "inner_alchemy", "choose_journey"):
             context_note += "\\nLOVE ALCHEMY JOURNEY: Current selected pathway=" + goal + ". Follow the signature journey instructions, drawing on saved Journal vision if available.\\n"
+        if goal=="patterns":
+            context_note += "\nRELATIONSHIP PATTERN MODE: Use plain, accessible language. Do not automatically interpret answers as archetypes. After initial discovery, ask for a concrete example before developing deeper hypotheses. Introduce archetypes only occasionally, with a simple explanation and contextual relevance.\n"
         if goal in ("feminine_archetypes", "masculine_archetypes"):
             context_note += "\nARCHETYPE DISCOVERY MODE: The user has completed the free multiple-choice quiz if four selections appear in discovery context. Interpret them tentatively, do not restart the quiz.\n"
         await update.effective_chat.send_action("typing")
