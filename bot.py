@@ -289,11 +289,27 @@ def alchemy_menu():
         [InlineKeyboardButton("💬 My Replies", callback_data="menu:replies")],
         [InlineKeyboardButton("👑 Membership", callback_data="menu:membership")],
         [InlineKeyboardButton("❔ Help & Settings", callback_data="menu:help")],
+        [InlineKeyboardButton("🔒 Privacy & AI", callback_data="menu:privacy")],
     ])
 
 async def menu_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     await update.effective_message.reply_text("👑 My Alchemy Menu — choose what you need, beautiful.", reply_markup=alchemy_menu())
+
+async def privacy_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    await update.effective_message.reply_text(
+        "Privacy & AI\n\n"
+        "The Love Alchemist is an AI-powered relationship mentor, not a human therapist. "
+        "Your messages are sent through Telegram and processed by an AI provider to generate replies. "
+        "Chat messages and selected discovery answers are stored by the bot for continuity. "
+        "They are not posted publicly by the bot, but authorized service operators or providers may have access for operation, security, or support. "
+        "Telegram bot conversations are not end-to-end encrypted Secret Chats.\n\n"
+        "You can discuss personal relationship experiences, but consider leaving out names, contact details, and other identifying information. "
+        "/reset deletes stored chat messages but retains onboarding choices, the separate Alchemy Journal, and reply usage. "
+        "Use /clearjournal confirm to erase the Journal. "
+        "For questions about your data, contact thelovealchemistsupport@gmail.com."
+    )
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
@@ -304,7 +320,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/journey — Alchemy Journal\\n/reset — clear chat history (keeps journal and replies)\\n"
         "/start — welcome journey\\n/subscribe — membership\\n"
         "/subscription — paid access status\\n/feedback — share feedback\\n"
-        "/paysupport — payment help", reply_markup=alchemy_menu())
+        "/paysupport — payment help\\n/privacy — privacy & AI information", reply_markup=alchemy_menu())
 
 async def dailyon_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
@@ -475,9 +491,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
         "Welcome to The Love Alchemist.\n\n"
         "Darling, love is an art. And you, my dear, are both the masterpiece and the alchemist.\n\n"
-        "I'm your private AI mentor for love, dating, and the adventure of becoming more fully yourself.\n\n"
-        "Your first 10 AI replies are complimentary. I'm an AI mentor, not a therapist; messages are processed by an AI provider and stored for continuity. Avoid sharing highly sensitive details. /reset clears chat history, not trial usage.\n\n"
-        "What's on your heart today?",
+        "I'm your private AI mentor for love, dating, and the delicious adventure of becoming more fully yourself.\n\n"
+        "A little wisdom. A little magic. Perhaps a few deliciously uncomfortable truths—delivered with love.\n\n"
+        "What's on your heart today?\n\n"
+        "AI-powered relationship mentor · 10 complimentary AI replies · Privacy: /privacy",
         reply_markup=discovery.markup(discovery.PATHS, "path"))
 
 async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -540,9 +557,9 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if action=="pattern" and idx<len(discovery.PATTERNS) and goal=="patterns":
         selected=state.get("patterns",[])
-        if idx==7: selected=[7]
+        if idx==len(discovery.PATTERNS)-1: selected=[idx]
         elif idx in selected: selected=[x for x in selected if x!=idx]
-        else: selected=(selected if 7 not in selected else [])+[idx]
+        else: selected=(selected if (len(discovery.PATTERNS)-1) not in selected else [])+[idx]
         selected=selected[-2:]
         state["patterns"]=selected
         with db() as c:
@@ -1154,7 +1171,7 @@ if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
     if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
     app = Application.builder().token(TOKEN).post_init(daily_scheduler_start).post_shutdown(daily_scheduler_stop).build()
-    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("help", help_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
+    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("help", help_cmd), ("privacy", privacy_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CommandHandler("lovejourney", love_journey_cmd))
     app.add_handler(CallbackQueryHandler(journal_navigation, pattern=r"^journal:"))
