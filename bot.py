@@ -538,7 +538,7 @@ async def onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif idx==2:
             await q.message.reply_text("Let's create your Love Vision. In an ordinary moment with the relationship you desire, what would you love to experience?")
         else:
-            await q.message.reply_text("Every love story has a plot—and sometimes a familiar pattern. Tell me about a recent or recurring dating or relationship experience. What happened, how did you feel, and what did you find yourself doing? You can type or tap Telegram’s microphone to tell your story in a voice note. No need to make it perfect. 💜\n\nPrefer a little structure? Tap Help Me Get Started.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✨ Help Me Get Started",callback_data="d:guided:0")]]))
+            await q.message.reply_text("Every love story has a plot—and sometimes a familiar pattern. Tell me about a recent or recurring dating or relationship experience. What happened, how did you feel, and what did you find yourself doing? You can type or tap Telegram’s microphone to tell your story in a voice note. No need to make it perfect. 💜\n\nPrefer a little structure? Tap Help Me Get Started.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✨ Help Me Get Started",callback_data="ob:guided:0")]]))
         return
     if action=="guided" and goal=="patterns":
         await q.message.reply_text("Let’s start with a few simple choices. Afterward, I’ll invite you to share a real experience so we can explore your pattern more personally. Where are you in your love life?",reply_markup=discovery.markup(discovery.STATUS,"status",back=True))
