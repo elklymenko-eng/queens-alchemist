@@ -2,7 +2,7 @@
 import json
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-PATHS = ["Decode my love patterns", "Explore my inner archetypes", "Create my Love Vision", "Ask my own question"]
+PATHS = ["Decode My Love Pattern", "Explore my inner archetypes", "Create my Love Vision", "Ask my own question"]
 ARCHETYPE_PATHS = ["Feminine archetypes", "Masculine archetypes"]
 STATUS = ["Single / open to love", "Dating someone", "In a relationship", "After a breakup / starting over", "It's complicated!"]
 GENDER = ["Woman", "Man", "Non-binary", "Prefer not to say"]
