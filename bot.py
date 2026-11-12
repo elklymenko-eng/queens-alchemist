@@ -411,10 +411,10 @@ async def datereflection_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 def alchemy_menu():
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🧘 Practice Library", callback_data="menu:practices")],
         [InlineKeyboardButton("✨ Daily Love Alchemy", callback_data="menu:daily")],
         [InlineKeyboardButton("My Love Alchemy Journey", callback_data="menu:lovejourney")],
         [InlineKeyboardButton("💞 Date Reflection", callback_data="menu:datereflection")],
-        [InlineKeyboardButton("🧘 Practice Library", callback_data="menu:practices")],
         [InlineKeyboardButton("📖 My Alchemy Journal", callback_data="menu:journal")],
         [InlineKeyboardButton("🌱 Start Fresh", callback_data="menu:reset")],
         [InlineKeyboardButton("💬 My Replies", callback_data="menu:replies")],
