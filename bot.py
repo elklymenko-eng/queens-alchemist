@@ -303,9 +303,9 @@ def practice_library_markup():
 
 async def show_practice_library(message):
     await message.reply_text(
-        "🧘 Your Practice Library\\n\\nChoose whatever supports you today. "
+        "🧘 Your Practice Library\n\nChoose whatever supports you today. "
         "These are optional recorded practices, not diagnoses or prescriptions. "
-        "Explore at your own pace. New practices appear here as the library grows.\\n\\n"
+        "Explore at your own pace. New practices appear here as the library grows.\n\n"
         "Opening the library and its links does not use an AI reply.",
         reply_markup=practice_library_markup())
 
@@ -338,10 +338,11 @@ async def practice_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_practice_library(q.message)
         return
     await q.message.reply_text(
-        f"✨ {p['title']}\\n\\nFor: {p.get('when','Self-guided practice')}\\n\\n"
-        f"Open the recording or practice here: {p['url']}\\n\\n"
+        f"✨ {p['title']}\n\nFor: {p.get('when','Self-guided practice')}\n\n"
+        "Tap the button below to open the practice.\n\n"
         "Choose another practice anytime with /practices.",
         reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("▶️ Open Practice", url=p["url"])],
             [InlineKeyboardButton("📚 All Practices", callback_data="menu:practices")],
             [InlineKeyboardButton("↩️ My Alchemy Menu", callback_data="menu:open")],
         ]))
@@ -365,10 +366,10 @@ async def date_reflection_button(update: Update, context: ContextTypes.DEFAULT_T
     if len(answers) < len(DATE_REFLECTION_QUESTIONS):
         await show_date_reflection(q.message, context, len(answers))
         return
-    lines = "\\n".join(f"• {question} — {answer}" for question, answer in zip(DATE_REFLECTION_QUESTIONS, answers))
+    lines = "\n".join(f"• {question} — {answer}" for question, answer in zip(DATE_REFLECTION_QUESTIONS, answers))
     await q.message.reply_text(
-        "💜 Your Date Reflection\\n\\n" + lines +
-        "\\n\\nWould you like your Alchemist to explore what these answers suggest? "
+        "💜 Your Date Reflection\n\n" + lines +
+        "\n\nWould you like your Alchemist to explore what these answers suggest? "
         "The interpretation uses one AI reply; the questionnaire itself is free.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("✨ Explore my reflections", callback_data="date:analyze")],
@@ -388,10 +389,10 @@ async def date_reflection_actions(update: Update, context: ContextTypes.DEFAULT_
         if len(answers) != len(DATE_REFLECTION_QUESTIONS):
             await q.message.reply_text("Please start a new reflection with /datereflection.")
             return
-        lines = "\\n".join(f"{question} {answer}" for question, answer in zip(DATE_REFLECTION_QUESTIONS, answers))
+        lines = "\n".join(f"{question} {answer}" for question, answer in zip(DATE_REFLECTION_QUESTIONS, answers))
         prompt = (
-            "Please analyze my completed Love Alchemist Date Reflection, using these exact answers:\\n" + lines +
-            "\\nGive a concise, personal summary of what is supported by my answers, "
+            "Please analyze my completed Love Alchemist Date Reflection, using these exact answers:\n" + lines +
+            "\nGive a concise, personal summary of what is supported by my answers, "
             "distinguishing compatibility, curiosity, reciprocity, relaxation, admiration, "
             "playfulness and attraction. Explore possible patterns without assuming lack of "
             "attraction is trauma, that kindness obligates attraction, or that uncertainty is a diagnosis. "
