@@ -282,10 +282,137 @@ async def cancel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("journal_field", None)
     await update.effective_message.reply_text("No Journal entry saved. 💜", reply_markup=alchemy_menu())
 
+DATE_REFLECTION_QUESTIONS = [
+    "Do I feel curious about this person as a person?",
+    "Do they show genuine curiosity about me?",
+    "Can I relax without managing the interaction?",
+    "Is there playfulness or romantic attraction?",
+    "Do I respect how they handle themselves?",
+    "Do I genuinely want to see them again?",
+]
+DATE_REFLECTION_OPTIONS = ("Yes", "Unsure", "No")
+
+def practice_library_markup():
+    rows = [
+        [InlineKeyboardButton(p["title"][:60], callback_data=f"practice:{i}")]
+        for i, p in enumerate(PRACTICES)
+        if p.get("title") and p.get("url")
+    ]
+    rows.append([InlineKeyboardButton("↩️ Back to My Alchemy Menu", callback_data="menu:open")])
+    return InlineKeyboardMarkup(rows)
+
+async def show_practice_library(message):
+    await message.reply_text(
+        "🧘 Your Practice Library\\n\\nChoose whatever supports you today. "
+        "These are optional recorded practices, not diagnoses or prescriptions. "
+        "Explore at your own pace. New practices appear here as the library grows.\\n\\n"
+        "Opening the library and its links does not use an AI reply.",
+        reply_markup=practice_library_markup())
+
+def date_reflection_markup(step):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(option, callback_data=f"date:{step}:{i}") for i, option in enumerate(DATE_REFLECTION_OPTIONS)],
+        [InlineKeyboardButton("↩️ Back to My Alchemy Menu", callback_data="menu:open")],
+    ])
+
+async def show_date_reflection(message, context, step=0):
+    answers = context.user_data.get("date_reflection", [])
+    if step == 0:
+        await message.reply_text(
+            "💜 Date Reflection — a gentle check-in, not a compatibility test. "
+            "Notice your genuine desire, reciprocity and how you feel together. "
+            "There are no right answers. Six questions; tap Yes, Unsure or No. "
+            "Your personalized AI reflection at the end uses one AI reply.")
+    await message.reply_text(
+        f"{step+1}/6 · {DATE_REFLECTION_QUESTIONS[step]}",
+        reply_markup=date_reflection_markup(step))
+
+async def practice_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    try:
+        i = int(q.data.split(":")[1])
+        p = PRACTICES[i]
+    except (ValueError, IndexError):
+        await show_practice_library(q.message)
+        return
+    await q.message.reply_text(
+        f"✨ {p['title']}\\n\\nFor: {p.get('when','Self-guided practice')}\\n\\n"
+        f"Open the recording or practice here: {p['url']}\\n\\n"
+        "Choose another practice anytime with /practices.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📚 All Practices", callback_data="menu:practices")],
+            [InlineKeyboardButton("↩️ My Alchemy Menu", callback_data="menu:open")],
+        ]))
+
+async def date_reflection_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    try:
+        _, step_raw, choice_raw = q.data.split(":")
+        step, choice = int(step_raw), int(choice_raw)
+    except ValueError:
+        return
+    answers = context.user_data.get("date_reflection", [])
+    if not (0 <= step < len(DATE_REFLECTION_QUESTIONS) and 0 <= choice < 3 and len(answers) == step):
+        await q.message.reply_text(
+            "This reflection has moved on. Start a fresh one with /datereflection.")
+        return
+    answers = answers + [DATE_REFLECTION_OPTIONS[choice]]
+    context.user_data["date_reflection"] = answers
+    if len(answers) < len(DATE_REFLECTION_QUESTIONS):
+        await show_date_reflection(q.message, context, len(answers))
+        return
+    lines = "\\n".join(f"• {question} — {answer}" for question, answer in zip(DATE_REFLECTION_QUESTIONS, answers))
+    await q.message.reply_text(
+        "💜 Your Date Reflection\\n\\n" + lines +
+        "\\n\\nWould you like your Alchemist to explore what these answers suggest? "
+        "The interpretation uses one AI reply; the questionnaire itself is free.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✨ Explore my reflections", callback_data="date:analyze")],
+            [InlineKeyboardButton("🔄 Reflect on another date", callback_data="date:restart")],
+            [InlineKeyboardButton("↩️ My Alchemy Menu", callback_data="menu:open")],
+        ]))
+
+async def date_reflection_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not await gate(update): return
+    if q.data == "date:restart":
+        context.user_data["date_reflection"] = []
+        await show_date_reflection(q.message, context)
+    elif q.data == "date:analyze":
+        answers = context.user_data.pop("date_reflection", [])
+        if len(answers) != len(DATE_REFLECTION_QUESTIONS):
+            await q.message.reply_text("Please start a new reflection with /datereflection.")
+            return
+        lines = "\\n".join(f"{question} {answer}" for question, answer in zip(DATE_REFLECTION_QUESTIONS, answers))
+        prompt = (
+            "Please analyze my completed Love Alchemist Date Reflection, using these exact answers:\\n" + lines +
+            "\\nGive a concise, personal summary of what is supported by my answers, "
+            "distinguishing compatibility, curiosity, reciprocity, relaxation, admiration, "
+            "playfulness and attraction. Explore possible patterns without assuming lack of "
+            "attraction is trauma, that kindness obligates attraction, or that uncertainty is a diagnosis. "
+            "Mention only a genuinely relevant archetype, with a short explanation of its gift and shadow, "
+            "and offer one practical next step. Do not invent facts about my date."
+        )
+        await chat(update, context, msg_override=prompt)
+
+async def practices_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    await show_practice_library(update.effective_message)
+
+async def datereflection_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await gate(update): return
+    context.user_data["date_reflection"] = []
+    await show_date_reflection(update.effective_message, context)
+
 def alchemy_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✨ Daily Love Alchemy", callback_data="menu:daily")],
-        [InlineKeyboardButton("My Love Alchemy Journey", callback_data="menu:lovejourney")],
+        [InlineKeyboardButton("My Love Alchemy Journey", callback_data="menu:lovejourney")],\n        [InlineKeyboardButton("💞 Date Reflection", callback_data="menu:datereflection")],\n        [InlineKeyboardButton("🧘 Practice Library", callback_data="menu:practices")],
         [InlineKeyboardButton("📖 My Alchemy Journal", callback_data="menu:journal")],
         [InlineKeyboardButton("🌱 Start Fresh", callback_data="menu:reset")],
         [InlineKeyboardButton("💬 My Replies", callback_data="menu:replies")],
@@ -317,7 +444,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     await update.effective_message.reply_text(
         "You can always ask me for help in ordinary words. Here are the shortcuts:\\n"
-        "/menu — your Alchemy Menu\\n/lovejourney — guided Love Vision and Alchemy paths\\n/dailyon — morning Love Alchemy settings\\n"
+        "/menu — your Alchemy Menu\\n/practices — browse recorded practices\\n/datereflection — guided date reflection\\n/lovejourney — guided Love Vision and Alchemy paths\\n/dailyon — morning Love Alchemy settings\\n"
         "/dailyoff — pause morning messages\\n/remaining — reply allowance\\n"
         "/journey — Alchemy Journal\\n/reset — clear chat history (keeps journal and replies)\\n"
         "/start — welcome journey\\n/subscribe — membership\\n"
@@ -440,7 +567,7 @@ async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = q.data
     if action == "menu:open":
         await q.message.reply_text("👑 My Alchemy Menu", reply_markup=alchemy_menu())
-    elif action == "menu:lovejourney":
+    elif action == "menu:practices":\n        await show_practice_library(q.message)\n    elif action == "menu:datereflection":\n        context.user_data["date_reflection"] = []\n        await show_date_reflection(q.message, context)\n    elif action == "menu:lovejourney":
         await love_journey_home(q.message, q.from_user.id)
     elif action == "menu:daily":
         with db() as c:
@@ -470,7 +597,7 @@ async def daily_scheduler_start(app):
     try:
         await app.bot.set_my_commands([
             ("start","Begin your journey"), ("menu","My Alchemy Menu"),
-            ("lovejourney","My Love Alchemy Journey"),
+            ("lovejourney","My Love Alchemy Journey"),\n            ("datereflection","Reflect on a date"), ("practices","Practice Library"),
             ("dailyon","Daily Love Alchemy settings"), ("dailyoff","Pause daily messages"),
             ("remaining","Check replies"), ("journey","My Alchemy Journal"),
             ("reset","Clear chat history"), ("subscribe","Subscribe"),
@@ -1185,12 +1312,12 @@ if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
     if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
     app = Application.builder().token(TOKEN).post_init(daily_scheduler_start).post_shutdown(daily_scheduler_stop).build()
-    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("help", help_cmd), ("privacy", privacy_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
+    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("practices", practices_cmd), ("datereflection", datereflection_cmd), ("help", help_cmd), ("privacy", privacy_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CommandHandler("lovejourney", love_journey_cmd))
     app.add_handler(CallbackQueryHandler(journal_navigation, pattern=r"^journal:"))
     app.add_handler(CallbackQueryHandler(daily_button, pattern=r"^daily:"))
-    app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))
+    app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))\n    app.add_handler(CallbackQueryHandler(practice_button, pattern=r"^practice:[0-9]+$"))\n    app.add_handler(CallbackQueryHandler(date_reflection_button, pattern=r"^date:[0-5]:[0-2]$"))\n    app.add_handler(CallbackQueryHandler(date_reflection_actions, pattern=r"^date:(analyze|restart)$"))
     app.add_handler(CallbackQueryHandler(love_journey_button, pattern=r"^love:"))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^ob:"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
