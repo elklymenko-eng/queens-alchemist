@@ -412,7 +412,9 @@ async def datereflection_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
 def alchemy_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✨ Daily Love Alchemy", callback_data="menu:daily")],
-        [InlineKeyboardButton("My Love Alchemy Journey", callback_data="menu:lovejourney")],\n        [InlineKeyboardButton("💞 Date Reflection", callback_data="menu:datereflection")],\n        [InlineKeyboardButton("🧘 Practice Library", callback_data="menu:practices")],
+        [InlineKeyboardButton("My Love Alchemy Journey", callback_data="menu:lovejourney")],
+        [InlineKeyboardButton("💞 Date Reflection", callback_data="menu:datereflection")],
+        [InlineKeyboardButton("🧘 Practice Library", callback_data="menu:practices")],
         [InlineKeyboardButton("📖 My Alchemy Journal", callback_data="menu:journal")],
         [InlineKeyboardButton("🌱 Start Fresh", callback_data="menu:reset")],
         [InlineKeyboardButton("💬 My Replies", callback_data="menu:replies")],
@@ -567,7 +569,12 @@ async def menu_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = q.data
     if action == "menu:open":
         await q.message.reply_text("👑 My Alchemy Menu", reply_markup=alchemy_menu())
-    elif action == "menu:practices":\n        await show_practice_library(q.message)\n    elif action == "menu:datereflection":\n        context.user_data["date_reflection"] = []\n        await show_date_reflection(q.message, context)\n    elif action == "menu:lovejourney":
+    elif action == "menu:practices":
+        await show_practice_library(q.message)
+    elif action == "menu:datereflection":
+        context.user_data["date_reflection"] = []
+        await show_date_reflection(q.message, context)
+    elif action == "menu:lovejourney":
         await love_journey_home(q.message, q.from_user.id)
     elif action == "menu:daily":
         with db() as c:
@@ -597,7 +604,8 @@ async def daily_scheduler_start(app):
     try:
         await app.bot.set_my_commands([
             ("start","Begin your journey"), ("menu","My Alchemy Menu"),
-            ("lovejourney","My Love Alchemy Journey"),\n            ("datereflection","Reflect on a date"), ("practices","Practice Library"),
+            ("lovejourney","My Love Alchemy Journey"),
+            ("datereflection","Reflect on a date"), ("practices","Practice Library"),
             ("dailyon","Daily Love Alchemy settings"), ("dailyoff","Pause daily messages"),
             ("remaining","Check replies"), ("journey","My Alchemy Journal"),
             ("reset","Clear chat history"), ("subscribe","Subscribe"),
@@ -1317,7 +1325,10 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("lovejourney", love_journey_cmd))
     app.add_handler(CallbackQueryHandler(journal_navigation, pattern=r"^journal:"))
     app.add_handler(CallbackQueryHandler(daily_button, pattern=r"^daily:"))
-    app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))\n    app.add_handler(CallbackQueryHandler(practice_button, pattern=r"^practice:[0-9]+$"))\n    app.add_handler(CallbackQueryHandler(date_reflection_button, pattern=r"^date:[0-5]:[0-2]$"))\n    app.add_handler(CallbackQueryHandler(date_reflection_actions, pattern=r"^date:(analyze|restart)$"))
+    app.add_handler(CallbackQueryHandler(menu_button, pattern=r"^menu:"))
+    app.add_handler(CallbackQueryHandler(practice_button, pattern=r"^practice:[0-9]+$"))
+    app.add_handler(CallbackQueryHandler(date_reflection_button, pattern=r"^date:[0-5]:[0-2]$"))
+    app.add_handler(CallbackQueryHandler(date_reflection_actions, pattern=r"^date:(analyze|restart)$"))
     app.add_handler(CallbackQueryHandler(love_journey_button, pattern=r"^love:"))
     app.add_handler(CallbackQueryHandler(onboarding, pattern=r"^ob:"))
     app.add_handler(CallbackQueryHandler(rate, pattern=r"^f:"))
