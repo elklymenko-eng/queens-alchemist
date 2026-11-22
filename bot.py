@@ -1167,6 +1167,47 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Use /clearjournal confirm to erase it. Your trial count and onboarding choices remain. "
         "Use /start to revisit the welcome.")
 
+async def adminfeedback_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Private, read-only feedback overview for configured owner Telegram IDs."""
+    if update.effective_user.id not in OWNERS:
+        await update.effective_message.reply_text("This command is available only to the bot owner.")
+        return
+    with db() as c:
+        totals = dict(c.execute("SELECT rating, COUNT(*) FROM feedback GROUP BY rating").fetchall())
+        notes_count = c.execute("SELECT COUNT(*) FROM feedback_notes").fetchone()[0]
+        ratings_count = sum(totals.values())
+        recent_ratings = c.execute(
+            "SELECT rating, ts FROM feedback ORDER BY ts DESC, rowid DESC LIMIT 8"
+        ).fetchall()
+        recent_notes = c.execute(
+            "SELECT note, ts FROM feedback_notes ORDER BY ts DESC, rowid DESC LIMIT 8"
+        ).fetchall()
+        permissions = dict(c.execute(
+            "SELECT permission, COUNT(*) FROM testimonials GROUP BY permission"
+        ).fetchall())
+    lines = [
+        "📊 Love Alchemist — Private Feedback",
+        f"Ratings: {ratings_count} total",
+        f"❤️ Very: {totals.get('very', 0)} | 🙂 Somewhat: {totals.get('somewhat', 0)} | 👎 Not really: {totals.get('not_really', 0)}",
+        f"Written comments: {notes_count}",
+        "Testimonials: " + ", ".join(
+            f"{k} {v}" for k, v in sorted(permissions.items())
+        ) if permissions else "Testimonials: none",
+        "",
+        "Recent ratings:",
+    ]
+    lines.extend(f"• {ts}: {rating}" for rating, ts in recent_ratings)
+    if not recent_ratings:
+        lines.append("No ratings yet.")
+    lines.append("")
+    lines.append("Recent written comments (private; not for publication without permission):")
+    for note, ts in recent_notes:
+        clean = " ".join((note or "").split())[:500]
+        lines.append(f"• {ts}: {clean}")
+    if not recent_notes:
+        lines.append("No written comments yet.")
+    await update.effective_message.reply_text("\n".join(lines)[:3900])
+
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await gate(update): return
     await update.effective_message.reply_text("How was your experience with The Queen\'s Alchemist? Your feedback is welcome, and you can optionally share a paragraph about what you gained. Nothing is published without your permission.",
@@ -1321,7 +1362,7 @@ if __name__ == "__main__":
     if not TOKEN or not API_KEY: raise RuntimeError("Set TELEGRAM_BOT_TOKEN and OPENAI_API_KEY")
     if not BETA_OPEN and not ALLOWED and not OWNERS: log.warning("No users authorized. Use BETA_OPEN=true for an open tester beta.")
     app = Application.builder().token(TOKEN).post_init(daily_scheduler_start).post_shutdown(daily_scheduler_stop).build()
-    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("practices", practices_cmd), ("datereflection", datereflection_cmd), ("help", help_cmd), ("privacy", privacy_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
+    for cmd, fn in [("id", id_cmd), ("subscribe", subscribe_cmd), ("subscription", subscription_cmd), ("paysupport", paysupport_cmd), ("start", start), ("reset", reset), ("feedback", feedback), ("remaining", remaining_cmd), ("journey", journey_cmd), ("remember", remember_cmd), ("clearjournal", clearjournal_cmd), ("menu", menu_cmd), ("adminfeedback", adminfeedback_cmd), ("practices", practices_cmd), ("datereflection", datereflection_cmd), ("help", help_cmd), ("privacy", privacy_cmd), ("dailyon", dailyon_cmd), ("dailyoff", dailyoff_cmd), ("cancel", cancel_cmd)]:
         app.add_handler(CommandHandler(cmd, fn))
     app.add_handler(CommandHandler("lovejourney", love_journey_cmd))
     app.add_handler(CallbackQueryHandler(journal_navigation, pattern=r"^journal:"))
