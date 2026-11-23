@@ -36,6 +36,20 @@ MESSAGES = [
     ("Love Is Already Here", "What if love isn't something you have to chase? Your life may already be full of opportunities to experience it—in friendship, beauty, laughter, generosity, and connection. Romantic love can grow from that fullness rather than being asked to create it.", "Notice three ways love is already present in your world."),
     ("Stop Auditioning", "Stop auditioning. You're not applying for the position of Girlfriend. Dating is an encounter between two interesting humans, not an interview where one person decides the other's worth.", "Replace 'Will they like me?' with 'Am I enjoying this?'"),
     ("More Than a Talking Head", "Your body was made for more than carrying your head around. It can dance, stretch, taste, breathe, laugh, and experience extraordinary pleasure in ordinary moments.", "Put on a song you love. Let your body decide what happens next."),
+    ("Your Priestess Speaks", "Not every answer arrives through thinking. Some become clear when the noise settles.", "Give yourself a quiet moment without reaching for your phone. Listen to what you already know."),
+    ("Your Wild Woman Speaks", "When was the last time you did something simply because it made you feel alive?", "Break one harmless little routine. Take the scenic route. Dance unexpectedly. Follow your curiosity."),
+    ("Your Inner Mother Speaks", "You don't need to be exhausted to deserve tenderness. And you don't need a good reason to take care of yourself.", "Offer yourself the same warmth you'd give someone you deeply love."),
+    ("Your Wise Witch Speaks", "Some rules were handed to you before you were old enough to question them. You are allowed to reconsider.", "Notice one old 'should' and ask whether it still belongs in your life."),
+    ("Your Lover Speaks", "Darling, life is not meant to be admired from behind a window.", "Experience something delicious with your senses. Taste slowly. Feel the sunshine. Let pleasure have your full attention."),
+    ("Your Princess Speaks", "You don't have to be the responsible adult every single minute.", "Let yourself be delighted by something small, silly, beautiful, or completely unnecessary."),
+    ("Your Warrior Speaks", "Your strength is not measured by how much you can endure. Sometimes courage means choosing a different direction.", "Use your strength in service of something you genuinely desire."),
+    ("Your Jester Speaks", "Breaking news: You are officially allowed to take life a little less seriously.", "Find one reason to laugh at the absurdity of being human."),
+    ("Your Queen Speaks", "You don't have to silence the parts of you that disagree. Your heart can want adventure while another part longs for comfort.", "Make room for both. Wholeness is not the absence of contradictions."),
+    ("Your Inner Guardian Speaks", "You can relax. I am here to help you make wise choices, not to criticize every move.", "Let discernment support your freedom instead of restricting it."),
+    ("The Lover's Invitation", "What if you stopped waiting for someone else to bring romance into your life?", "Make one ordinary moment feel special. Beautiful music, fresh flowers, candlelight—just because."),
+    ("The Wild Woman's Permission Slip", "You are allowed to change your mind. To explore. To discover a new side of yourself.", "Ask: What would I try if I didn't need to explain myself to everyone?"),
+    ("The Priestess and the Queen", "Your intuition can whisper. Your wisdom can investigate. You don't have to choose between them.", "Honor both what you feel and what you know."),
+    ("The Queen's Reminder", "You are not a project that needs endless improvement before life can begin.", "Live a little of the beautiful life you've been preparing yourself for."),
 ]
 
 def initialize(conn):
