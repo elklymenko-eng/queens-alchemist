@@ -29,6 +29,13 @@ MESSAGES = [
     ("Your Love Vision", "A beautiful relationship is not just about being chosen. It's about choosing each other, again and again.", "Imagine one ordinary action that would make you feel cherished and free."),
     ("The Playful Princess", "You are allowed to enjoy being courted without surrendering your discernment.", "Practice expressing one simple preference with a smile."),
     ("Emotional Sovereignty", "Every feeling deserves to be heard. Not every feeling needs to be delivered.", "Give a strong feeling a little loving space before deciding what action it needs."),
+
+    ("A Little Mystery", "You don't need to reveal your entire life story over three cups of coffee. Attraction loves discovery. Let someone get to know you one delightful chapter at a time.", "Be curious. Leave a little room for the next conversation."),
+    ("Your Inner Critic Has Opinions", "Your inner critic has opinions. Lots of them. But having an opinion doesn't make her the CEO of your life. You can hear the frightened part of you without handing her the steering wheel.", "When an old fear speaks, ask: Is this wisdom—or an old story?"),
+    ("The World Will Survive", "The world will survive if you relax. Seriously. You don't have to hold everything together to deserve a beautiful life. Sometimes your most productive decision is to stop producing.", "Enjoy something today without turning it into an accomplishment."),
+    ("Love Is Already Here", "What if love isn't something you have to chase? Your life may already be full of opportunities to experience it—in friendship, beauty, laughter, generosity, and connection. Romantic love can grow from that fullness rather than being asked to create it.", "Notice three ways love is already present in your world."),
+    ("Stop Auditioning", "Stop auditioning. You're not applying for the position of Girlfriend. Dating is an encounter between two interesting humans, not an interview where one person decides the other's worth.", "Replace 'Will they like me?' with 'Am I enjoying this?'"),
+    ("More Than a Talking Head", "Your body was made for more than carrying your head around. It can dance, stretch, taste, breathe, laugh, and experience extraordinary pleasure in ordinary moments.", "Put on a song you love. Let your body decide what happens next."),
 ]
 
 def initialize(conn):
